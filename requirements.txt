@@ -1,0 +1,5 @@
+langgraph>=1.0
+pydantic>=2.6
+sqlite-vec>=0.1.9
+mcp>=1.2,<2        # API FastMCP da 1.x; a 2.x renomeou (MCPServer) e mudou APIs
+pytest             # só desenvolvimento
