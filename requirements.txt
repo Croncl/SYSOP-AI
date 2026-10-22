@@ -1,0 +1,5 @@
+langgraph>=1.0
+pydantic>=2.6
+sqlite-vec>=0.1.9
+mcp>=1.2,<2
+pytest
