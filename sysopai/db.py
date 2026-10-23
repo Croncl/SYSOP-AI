@@ -72,13 +72,15 @@ def _blob(v: Iterable[float]) -> bytes:
 def mem_add(con: sqlite3.Connection, embed: Callable[[str], list[float]], kind: str, text: str,
             incident_id: int | None = None) -> int | None:
     """Idempotente (content_sha). Retorna id, ou None se já existia."""
+    text = text[:1200]  # mesmo limite do CHECK de mem_docs
     sha = hashlib.sha256(text.encode()).hexdigest()
     if con.execute("SELECT 1 FROM mem_docs WHERE content_sha=?", (sha,)).fetchone():
         return None
+    vec = _blob(embed(text))  # embedding ANTES de gravar: se falhar, nada é gravado
     cur = con.execute("INSERT INTO mem_docs(kind,incident_id,text,content_sha,created_at) VALUES (?,?,?,?,?)",
                       (kind, incident_id, text[:1200], sha, int(time.time())))
     rid = cur.lastrowid
-    con.execute("INSERT INTO mem_vec(rowid, embedding, kind) VALUES (?,?,?)", (rid, _blob(embed(text)), kind))
+    con.execute("INSERT INTO mem_vec(rowid, embedding, kind) VALUES (?,?,?)", (rid, vec, kind))
     return rid
 
 
