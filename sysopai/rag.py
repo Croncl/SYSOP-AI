@@ -65,4 +65,9 @@ def ingest_kb_file(con, embed: Embed, path: str | Path) -> dict:
 
 def make_retriever(con, embed: Embed, k: int = 2):
     """Devolve a função que o grafo espera: consulta -> lista de trechos (a distância só ORDENA)."""
-    return lambda query: db.mem_search(con, embed, query, k=k)
+    def retrieve(query: str) -> list[dict]:
+        try:
+            return db.mem_search(con, embed, query, k=k)
+        except Exception:  # embedder fora do ar: o agente segue sem memória, nunca para a análise
+            return []
+    return retrieve
