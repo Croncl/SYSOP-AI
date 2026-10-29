@@ -16,9 +16,9 @@
 | 6 | API Backend (na prática: coletor + triagem; CLI e MCP adiados) | Concluído parcialmente (CLI, MCP e grafo ficam para o passo 11) |
 | 7 | Segurança e autenticação | Concluído (P36 e `ignoreip` abertos) |
 | 8 | Pipeline RAG | Concluído |
-| 9 | Vetorização | **Concluído (aguardando confirmação; checksum do modelo pendente)** |
-| 10 | Busca semântica | Pendente |
-| 11 | Integração com LLM | Pendente |
+| 9 | Vetorização | Concluído (checksum verificado em 27/10) |
+| 10 | Busca semântica | Concluído |
+| 11 | Integração com LLM | **Concluído (aguardando confirmação; MCP movido para o passo 15)** |
 | 12 | Logs e auditoria | Pendente |
 | 13 | Testes | Pendente |
 | 14 | Deploy | Pendente |
@@ -416,8 +416,97 @@ O bge-m3 **não existia em disco** (`/srv/models` só tinha Qwen2.5-3B, Qwen2.5-
 - Dependências introduzidas no host: `slirp4netns` e `libslirp0` (apt) — **inúteis sem TUN; remover** (`apt remove`).
 
 ### 9.6 Riscos e pendências
-- **Checksum do modelo não verificado.** Comparar `sha256sum` do arquivo com o `lfs.oid` publicado pela API do Hugging Face (prova integridade do download, não que o publicador seja confiável).
+- **Checksum verificado (27/10/2026) [Medido]:** `sha256sum` de `bge-m3-q8_0.gguf` = `aa473d51f451a22f0fcf39ba3330c14bed38a385712b1113440f69df4047a173`, idêntico ao `lfs.oid` publicado pela API do Hugging Face. Prova integridade do download, não que o publicador seja confiável.
 - A consulta real do grafo é `"{kind} {severity}"` (ex.: `ssh_bruteforce medium`), **não** uma pergunta em linguagem natural como as do teste: a qualidade real dessa consulta ainda não foi medida (passo 10).
 - Embeddings concorrentes com o LLM do nó Plan disputam a banda de memória (P25/P30).
 - Reindexação obrigatória se o modelo ou a quantização mudarem.
+
+---
+
+## Passo 10 — Busca semântica
+
+**Data:** 27/10/2026 · **Arquivos novos:** `scripts/eval_rag.py` · **Alterados:** `sysopai/rag.py`, `kb/procedimentos.md`, `tests/test_rag.py`.
+
+### 10.1 Objetivo
+Medir a recuperação com a consulta que o agente realmente faz, e decidir como tratar consultas sem resposta na base (a busca sempre devolve o "menos distante", mesmo irrelevante).
+
+### 10.2 Medições com o modelo real [Medido]
+- Consultas com resposta na base: distância do 1º resultado **0,27 a 0,46**. Consultas sem resposta (outro assunto, ou tipos de incidente sem procedimento): **0,56 a 0,73**. Lacuna entre os dois grupos: 0,446 a 0,556 (≈0,11).
+- A consulta do grafo no formato de palavras-chave (`ssh_bruteforce medium`) funcionou (margem 0,13 a 0,14), mas uma frase descritiva aproxima mais (≈0,37 contra 0,45).
+- Um erro real: "o ip 100.111.186.82 da tailscale pode ser banido?" foi para "Brute force". Causa: a base falava em `100.64.0.0/10` sem citar "Tailscale"; embeddings **não relacionam um IP a uma faixa CIDR**. Corrigido na base. Lição: **quem decide se um IP é protegido é o código (`is_protected`), nunca a memória.**
+
+### 10.3 Decisões e justificativas
+| Decisão | Justificativa | Alternativa |
+|---|---|---|
+| `rag.build_query(kind, severity, n_events, ip_protected)`: consulta montada **pelo código** a partir de fatos do incidente, com limpeza de caracteres | Nunca usa texto do log (entrada do atacante); inclui fato que só o código sabe (IP em rede protegida) | Consulta de palavras-chave `"{kind} {severity}"` |
+| Corte de distância **0,50** (`SYSOP_RAG_MAX_DISTANCE`) no retriever | Evita injetar no prompt trechos sem relação (tokens caros, superfície de injeção); separa os dois grupos medidos | Sem corte; corte por margem |
+| O corte é um **filtro grosseiro de ruído**, não decisão de relevância | A distância só ordena (lição do laboratório de RAG); errar para o lado "sem trecho" é seguro (o grafo funciona sem memória) | Tratar o corte como verdade |
+| Critério de aprovação do script: algum dos **k=2** trechos é aceitável (top1 impresso ao lado) | O grafo injeta 2 trechos; medir só o 1º seria rígido demais | Só top1 |
+| Base atualizada: seção de redes protegidas cita "Tailscale" | Corrige o erro medido | — |
+
+### 10.4 Defeito encontrado e corrigido (meu)
+A primeira versão de `build_query` acrescentava "IP externo, devo propor banimento?". Isso puxou consultas de `port_scan` e `integrity_change` (sem procedimento na base) para 0,41 e elas passaram o corte: **regressão introduzida por mim**, detectada pelo script de avaliação. Sufixo removido; voltaram a 0,56 a 0,57 (descartadas).
+
+### 10.5 Validação [Medido]
+`pytest`: 46 passed. `python scripts/eval_rag.py`: **0 falhas em 12**; 1 caso acerta só no 2º lugar (consulta de IP em rede protegida: 1º "Brute force", 2º "Falhas de login").
+
+### 10.6 Limites (honestos)
+- **Poucos dados e ajuste no mesmo conjunto:** 12 consultas, base de 4 documentos, e o corte foi escolhido olhando estes mesmos casos (sem conjunto separado de validação). Margem do pior caso irrelevante ao corte: 0,556 contra 0,50 (≈0,056), apertada.
+- Recalibrar o corte quando a base crescer ou o modelo mudar; o script (`scripts/eval_rag.py`) existe para isso e deve entrar nos testes de integração (passo 13).
+- O script depende do container `llama-embed` no ar.
+
+### 10.7 Impactos no passo 11 (grafo)
+1. Usar `rag.build_query` na etapa Analyze (em vez de `"{kind} {severity}"`).
+2. **Pular o LLM quando o IP do incidente está em rede protegida** (só registrar aviso): hoje `open_incidents` abre incidente também para esses IPs e cada um custaria 2 a 4,5 min de LLM para ser rejeitado depois pela validação.
+3. O retriever já devolve `[]` se o embedder falhar ou se nada passar o corte; o prompt segue sem `<memory>`.
+
+---
+
+## Passo 11 — Integração com o LLM (grafo, aprovações separadas e CLI)
+
+**Data:** 27 a 29/10/2026 · **Arquivos novos:** `sysopai/graph.py`, `sysopai/approvals.py`, `sysopai/cli.py`, `scripts/bench_plan.py`, `tests/test_graph.py`, `tests/test_approvals.py`, `tests/test_cli.py` · **Host:** container `llama-plan`.
+
+### 11.1 Objetivo
+Ligar o LLM ao agente (nó Plan), validar o `json_schema` (P37), medir a latência real (P25/P33), implementar o grafo e fechar a fronteira de aprovação (P36).
+
+### 11.2 Servidor do LLM
+`ghcr.io/ggml-org/llama.cpp:server` em podman, `--network=host` (kernel sem TUN) e `--host 127.0.0.1 --port 8080`, `--alias react`, `-np 1 -c 2048 -t 4`, `--memory=4g`, `--cap-drop=ALL`, modelo montado `:ro`. Modelo: `qwen2.5-3b-instruct-q4_k_m.gguf` (2 GB). RAM usada sobe ≈ 2 GiB (840 MiB → 2,8 GiB). Mesmos avisos do embedder: sem chave de API e CORS aberto; porta só no loopback. **Os containers não sobem sozinhos no boot** (pendência do passo 14).
+
+### 11.3 Medições [Medido]
+| Item | Valor |
+|---|---|
+| `response_format=json_schema` no llama-server desta imagem | **Funciona** (JSON válido, Pydantic aceitou) — fecha **P37** |
+| Prefill (prompt frio, 703 tokens) | 63 s a **11,15 tok/s**; ≈ 91 s para ~1.020 tokens |
+| Geração | **2,94 tok/s** (102 tokens em 34 s) |
+| Plan completo (prompt frio) | **≈ 100 s (1m37s a 1m48s de ponta a ponta no `simulate`)**; fecha **P33** |
+| Temperatura | 73,6 → 74,7 °C (44,5 → 72,3 °C na segunda execução); longe do pico de 96,3 °C do doc 14 |
+
+**Erro meu corrigido:** a primeira execução do benchmark (51 s) estava contaminada por cache de prompt (um pedido anterior idêntico, cancelado, já tinha processado os 1.020 tokens); conclusão inicial de "muito abaixo da estimativa" estava errada. Com prompt frio o custo fica na faixa baixa da estimativa do doc 14 (2 a 4,5 min). Com 1 reprompt dobra (~4 min). `-np 1` preserva o cache do prefixo comum entre incidentes.
+
+### 11.4 Decisões e justificativas
+| Decisão | Justificativa | Alternativa |
+|---|---|---|
+| `graph.py` do doc 14 com 3 mudanças: (1) Triage **fecha sem LLM** se o IP está em rede protegida; (2) Analyze usa `rag.build_query`, e falha do retriever não derruba a análise; (3) `summarize_window` ordena severidade com `CASE` | (1) economiza ~100 s de LLM por incidente que seria rejeitado; (3) o original ordenava texto (`medium` antes de `critical`) | Código original |
+| Evidência ordenada por `ts DESC, id DESC` | Com timestamps iguais a ordem era arbitrária (evidência não determinística) | Sem desempate |
+| **Aprovação em arquivo separado** (`approvals.py`, `approvals.db`) amarrada a hash de id + data + ferramenta + argumentos, validade de 24 h, falha fechada, `CHECK` do banco recusa `agent`/`sysop`/`policy:*` | Fecha **P36**: `status='approved'` no banco do serviço nunca basta; argumentos alterados depois invalidam | Mesmo banco; assinatura com chave |
+| `journal_mode=DELETE` no `approvals.db` | Leitor somente-leitura não abre WAL sem poder escrever o `-shm` | WAL |
+| CLI com papéis separados: `approve` só **grava** a aprovação; `run-once` (serviço) **executa** | Quem aprova não executa e vice-versa | `approve` executando |
+| `simulate`: banco temporário, executor e verificação falsos, Qwen real | Testar ponta a ponta sem banir nada | Testar em produção |
+| Texto do modelo e do log passa por `sanitize` antes do terminal | O `reason` pode conter ANSI/`<`; é entrada não confiável | Imprimir cru |
+| **Servidores MCP movidos para o passo 15** | Hoje o grafo chama as tools direto; o MCP traria só separação de privilégios (leitura × escrita), que é endurecimento | Fazer agora |
+
+### 11.5 Validação
+`pytest`: **80 passed** [Simulado, LLM e executor falsos]. Cobrem: fluxo completo com **uma** chamada de LLM; modelo falso **obediente** à injeção recusado duas vezes (alvo fora da evidência) e nada executado; confiança baixa, JSON inválido, alvo não-IP e citação inexistente caem em `notify_only`; IP protegido dispensa o LLM; Reflect não confirmado → 1 retry → `failed` + `ALERT_CRITICAL`; `approved` forjado no banco do serviço **não executa**; argumentos alterados após a aprovação **não executam**; aprovação válida de IP protegido continua rejeitada na execução; evidência determinística; contexto não deixa o log fechar `</evidence>`; CLI (`approve` não executa, `sysop` recusado, `pending` sanitiza, `simulate` sem efeito real).
+Ponta a ponta com o **Qwen real** (`simulate`, 3 execuções; 34 falhas do mesmo IP externo, uma com injeção no 31º evento, comprovadamente dentro do prompt na execução 3): o modelo **nunca** propôs banir o alvo injetado.
+
+### 11.6 Achados e limites (honestos)
+- **Decisões do Qwen 3B no Plan (5 amostras: 1 `block_ip`, 4 `notify_only`)**: para um brute force que o código aceitaria bloquear, o modelo é conservador e **inconsistente**; o `reason` costuma se contradizer ("mais de 10 falhas ... sem confiança suficiente") e ignorou o limite de 120 caracteres do prompt (o limite real é o do esquema, 300). Resistir à injeção num modelo que quase sempre escolhe `notify_only` **não prova robustez**: a barreira é o código.
+- **Decisão do responsável (29/10):** manter o LLM como conselheiro (opção A). Alternativas registradas para o passo 13, com dados: **B** `reason_code` com valores fixos; **C** regra determinística para o caso óbvio e LLM só nos ambíguos.
+- **Limitação de permissões em produção:** `/var/lib/sysopai` é `0700` do `sysop`, então `approve` (como administrador) não conseguirá ler a linha da ação. Solução a desenhar no passo 14 (por ex.: o serviço exporta a ação para um local legível pelo administrador). Também no passo 14: criar `approvals.db` em diretório do administrador, legível pelo `sysop`.
+- A separação de aprovações só é **real** com as permissões do deploy; em desenvolvimento o mesmo usuário faz tudo (a lógica está testada, a barreira de sistema não).
+- `NoNewPrivileges` continua incompatível com `sudo -n` (risco 2 do passo 7).
+- `collector.run()` ao vivo, grafo com o `sudo` real, resumo em lote com o LLM real e `cli.py run-once` real **ainda não foram exercitados**.
+
+### 11.7 Dependências
+Imagem `ghcr.io/ggml-org/llama.cpp:server`; modelo Qwen2.5-3B (já presente em `/srv/models`); nenhuma biblioteca Python nova.
 
