@@ -153,7 +153,7 @@ def build_graph(con, llm: LLM, retriever: Retriever | None = None, ro_con=None, 
         inc, ev = s["incident"], s["evidence"]
         msgs = [{"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": _build_context(inc, ev, s.get("memory", []))}]
-        decision, why = None, ""
+        decision, why, ultima = None, "", None
         for attempt in range(2):  # 1 reprompt no máximo (cada tentativa custa minutos)
             t0 = time.time()
             try:
@@ -164,14 +164,23 @@ def build_graph(con, llm: LLM, retriever: Retriever | None = None, ro_con=None, 
                 ok = not why
             except (ValidationError, ValueError, OSError) as exc:
                 d, ok, why = None, False, f"saída inválida: {type(exc).__name__}"
-            con.execute("INSERT INTO llm_calls(ts,purpose,seconds,ok) VALUES (?,?,?,?)",
-                        (_now(), "plan", round(time.time() - t0, 2), int(ok)))
+            usage = getattr(llm, "last_usage", None) or {}
+            ultima = d if d is not None else ultima
+            con.execute("INSERT INTO llm_calls(ts,purpose,tokens_in,tokens_out,seconds,ok) VALUES (?,?,?,?,?,?)",
+                        (_now(), "plan", usage.get("prompt_tokens"), usage.get("completion_tokens"),
+                         round(time.time() - t0, 2), int(ok)))
             if ok:
                 decision = d
                 break
             msgs.append({"role": "user", "content": f"Rejeitado: {why}. Corrija ou use notify_only."})
+        aceita = decision is not None
         if decision is None:  # falha fechada: nunca age sem decisão válida
             decision = Decision(action="notify_only", confidence=0.0, reason=f"fallback: {why}"[:300])
+        dbm.audit(con, "agent", "plan_decision", {
+            "incident": inc["id"], "accepted": aceita, "why": why,
+            "model_proposed": ultima.action if ultima is not None else None,
+            "action": decision.action, "target": decision.target[:64], "confidence": decision.confidence,
+            "reason": sanitize(decision.reason, 200)})
         return {"decision": decision.model_dump(), "notes": s.get("notes", []) + ([why] if why else [])}
 
     # 4) Execute — read tools executam; write tools viram pending (HITL) salvo AUTO_APPROVE.
@@ -315,6 +324,9 @@ def openai_compat_llm(base_url: str = "http://127.0.0.1:8080/v1", model: str = "
                 "response_format": {"type": "json_schema", "json_schema": {"name": "decision", "schema": schema}}}
         req = urllib.request.Request(base_url + "/chat/completions", json.dumps(body).encode(),
                                      {"Content-Type": "application/json"})
+        call.last_usage = None
         with urllib.request.urlopen(req, timeout=timeout) as r:
-            return json.load(r)["choices"][0]["message"]["content"]
+            resp = json.load(r)
+        call.last_usage = resp.get("usage")
+        return resp["choices"][0]["message"]["content"]
     return call

@@ -5,3 +5,7 @@ __pycache__/
 *.db-shm
 journal.cursor
 .env
+*.key
+data/
+*.key
+data/

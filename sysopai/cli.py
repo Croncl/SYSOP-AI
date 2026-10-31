@@ -1,7 +1,7 @@
 """CLI do SYSOP-AI.
 
   init | kb-ingest | run-once [--max N] | pending | approve ID [--yes] | summary [--hours H]
-  simulate [--injecao] [--aprovar]
+  simulate [--injecao] [--aprovar] | audit [--hours H] [--event E] [--limit N] | stats [--hours H]
 
 Identidade humana = usuário Unix (getpass). 'approve' RECUSA o usuário de serviço 'sysop'.
 Separação de papéis: 'approve' só GRAVA a aprovação (approvals.db, do administrador); quem EXECUTA é o
@@ -202,6 +202,54 @@ def cmd_simulate(a) -> int:
     return 0
 
 
+def _hora(ts: int) -> str:
+    return time.strftime("%d/%m %H:%M:%S", time.localtime(int(ts)))
+
+
+def cmd_audit(a) -> int:
+    con = dbm.connect(readonly=True)
+    since = int(time.time()) - a.hours * 3600
+    sql, par = "SELECT ts,actor,event,detail FROM audit_log WHERE ts>=?", [since]
+    if a.event:
+        sql, par = sql + " AND event=?", par + [a.event]
+    rows = con.execute(sql + " ORDER BY id DESC LIMIT ?", par + [a.limit]).fetchall()
+    if not rows:
+        print("nenhum evento no período")
+        return 0
+    for r in reversed(rows):
+        print(f"{_hora(r['ts'])} {_s(r['actor'], 14):14s} {_s(r['event'], 28):28s} {_s(r['detail'], 160)}")
+    return 0
+
+
+def cmd_stats(a) -> int:
+    con = dbm.connect(readonly=True)
+    since = int(time.time()) - a.hours * 3600
+    print(f"== período: últimas {a.hours} h")
+    inc = con.execute("SELECT severity,status,count(*) n FROM incidents WHERE opened_at>=? GROUP BY 1,2 ORDER BY 1,2", (since,)).fetchall()
+    print("incidentes:", " | ".join(f"{r['severity']}/{r['status']}: {r['n']}" for r in inc) or "nenhum")
+    ev = con.execute("SELECT label,count(*) n FROM raw_events WHERE ts>=? GROUP BY 1 ORDER BY 2 DESC", (since,)).fetchall()
+    print("eventos:", " ".join(f"{r['label']}={r['n']}" for r in ev) or "nenhum")
+    cont: dict = {}
+    for (d,) in con.execute("SELECT detail FROM audit_log WHERE event='plan_decision' AND ts>=?", (since,)):
+        try:
+            j = json.loads(d)
+            k = (str(j.get("action")), "aceita" if j.get("accepted") else "REJEITADA")
+        except ValueError:
+            continue
+        cont[k] = cont.get(k, 0) + 1
+    print("decisões do Plan:", " | ".join(f"{k[0]} {k[1]}: {n}" for k, n in sorted(cont.items())) or "nenhuma")
+    ll = con.execute("SELECT seconds,ok,tokens_in,tokens_out FROM llm_calls WHERE ts>=?", (since,)).fetchall()
+    if ll:
+        seg = sorted(r["seconds"] or 0.0 for r in ll)
+        print(f"LLM: chamadas={len(ll)} ok={sum(r['ok'] for r in ll)} mediana={seg[len(seg) // 2]:.1f}s máx={seg[-1]:.1f}s "
+              f"tokens_in={sum(r['tokens_in'] or 0 for r in ll)} tokens_out={sum(r['tokens_out'] or 0 for r in ll)}")
+    else:
+        print("LLM: sem chamadas")
+    ac = con.execute("SELECT status,count(*) n FROM agent_actions WHERE ts>=? GROUP BY 1 ORDER BY 1", (since,)).fetchall()
+    print("ações:", " ".join(f"{r['status']}={r['n']}" for r in ac) or "nenhuma")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="sysop")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -218,9 +266,15 @@ def main(argv: list[str] | None = None) -> int:
     m = sub.add_parser("simulate")
     m.add_argument("--injecao", action="store_true")
     m.add_argument("--aprovar", action="store_true")
+    u = sub.add_parser("audit")
+    u.add_argument("--hours", type=int, default=24)
+    u.add_argument("--event")
+    u.add_argument("--limit", type=int, default=50)
+    t = sub.add_parser("stats")
+    t.add_argument("--hours", type=int, default=24)
     a = ap.parse_args(argv)
     fn = {"init": cmd_init, "kb-ingest": cmd_kb_ingest, "run-once": cmd_run_once, "pending": cmd_pending,
-          "approve": cmd_approve, "summary": cmd_summary, "simulate": cmd_simulate}[a.cmd]
+          "approve": cmd_approve, "summary": cmd_summary, "simulate": cmd_simulate, "audit": cmd_audit, "stats": cmd_stats}[a.cmd]
     try:
         return fn(a)
     except (PermissionError, ValueError) as exc:

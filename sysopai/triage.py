@@ -11,6 +11,8 @@ import sqlite3
 import time
 from typing import Callable, Optional
 
+import db
+
 IPV4 = r"(?P<ip>\d{1,3}(?:\.\d{1,3}){3})"
 RULES: list[tuple[re.Pattern, str, str, str]] = [
     # (regex, event_type, label, unit)
@@ -75,6 +77,8 @@ def open_incidents(con: sqlite3.Connection, now: int | None = None, window_s: in
              f"{r['n']} falhas de autenticação de {r['src_ip']} em {window_s // 60} min"))
         if cur.rowcount:
             iid = cur.lastrowid
+            db.audit(con, "collector", "incident_opened",
+                     {"id": iid, "kind": "ssh_bruteforce", "severity": sev, "ip": r["src_ip"], "n": r["n"]})
             con.execute("UPDATE raw_events SET incident_id=? WHERE src_ip=? AND ts>=? AND incident_id IS NULL "
                         "AND label IN ('bruteforce','critical')", (iid, r["src_ip"], now - window_s))
             ids.append(iid)

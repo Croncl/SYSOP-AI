@@ -58,9 +58,21 @@ def init(path: str | None = None) -> sqlite3.Connection:
     return con
 
 
+def _mirror(actor: str, event: str, txt: str) -> None:
+    """Cópia da trilha no journal do sistema (best-effort): o serviço escreve, mas não consegue alterar depois."""
+    try:
+        import syslog
+        syslog.openlog("sysop-audit", 0, syslog.LOG_AUTH)
+        syslog.syslog(syslog.LOG_INFO, f"{actor} {event} " + txt.replace("\n", " ")[:900])
+    except Exception:
+        pass  # falha do espelho nunca derruba a auditoria nem o agente
+
+
 def audit(con: sqlite3.Connection, actor: str, event: str, detail: dict | str) -> None:
-    con.execute("INSERT INTO audit_log(ts,actor,event,detail) VALUES (?,?,?,?)",
-                (int(time.time()), actor, event, detail if isinstance(detail, str) else json.dumps(detail)[:4000]))
+    txt = (detail if isinstance(detail, str) else json.dumps(detail))[:4000]
+    con.execute("INSERT INTO audit_log(ts,actor,event,detail) VALUES (?,?,?,?)", (int(time.time()), actor, event, txt))
+    if os.environ.get("SYSOP_AUDIT_SYSLOG") == "1":
+        _mirror(actor, event, txt)
 
 
 # ----------------------------- memória vetorial ----------------------------------
