@@ -9,3 +9,6 @@ journal.cursor
 data/
 *.key
 data/
+ab_harness/results/
+ab_harness/*.log
+*.gguf
