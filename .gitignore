@@ -15,3 +15,6 @@ ab_harness/*.log
 ab_harness/results/
 ab_harness/*.log
 *.gguf
+ab_harness/results/
+ab_harness/*.log
+*.gguf
