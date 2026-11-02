@@ -7,14 +7,6 @@ journal.cursor
 .env
 *.key
 data/
-*.key
-data/
-ab_harness/results/
-ab_harness/*.log
-*.gguf
-ab_harness/results/
-ab_harness/*.log
-*.gguf
 ab_harness/results/
 ab_harness/*.log
 *.gguf
