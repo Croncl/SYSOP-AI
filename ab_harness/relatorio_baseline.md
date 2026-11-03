@@ -25,6 +25,9 @@
 | Erros de HTTP/timeout | 0 |
 | Temperatura máx. (°C) | 92.8 |
 
+## Veredito frente ao baseline `qwen25-3b`
+
+
 ## Decisão final por caso (moda das repetições)
 
 | Caso | Esperado | qwen25-3b |

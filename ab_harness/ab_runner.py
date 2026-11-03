@@ -132,7 +132,7 @@ def load_case(con, case: dict, now: int, idx: int) -> int:
         con.execute(
             "INSERT INTO raw_events(ts,source,host,unit,event_type,src_ip,user,raw,label,label_score,labeler,incident_id)"
             " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            (now + e["dt"], "aide" if etype == "aide_change" else "journald", "synthetic", e.get("unit", "sshd"),
+            (now + e["dt"], e.get("source") or ("aide" if etype == "aide_change" else "journald"), "synthetic", e.get("unit", "sshd"),
              etype, e.get("src_ip"), e.get("user"), e["raw"][:2000], e.get("label", "bruteforce"), 1.0, "rule", iid))
     con.commit()
     return iid
