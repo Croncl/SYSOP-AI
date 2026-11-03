@@ -208,7 +208,8 @@ def run_model(*, label, base_url, model, dataset, reps=3, seed=42, temperature=0
               limit=None, warmup=True, overwrite=False, prompt_suffix="", log=sys.stderr) -> list[dict]:
     assert_safe_setup(base_url, allow_remote)
     orig_prompt = G.SYSTEM_PROMPT
-    G.SYSTEM_PROMPT = orig_prompt + prompt_suffix  # só durante esta execução; restaurado no finally
+    if prompt_suffix and prompt_suffix.strip() not in orig_prompt:  # já está no graph.py de produção? não duplica
+        G.SYSTEM_PROMPT = orig_prompt + prompt_suffix  # só durante esta execução; restaurado no finally
     cases = dataset["cases"]
     if only:
         cases = [c for c in cases if c["id"] in set(only)]

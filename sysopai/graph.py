@@ -49,6 +49,12 @@ SYSTEM_PROMPT = (
 )
 
 
+SYSTEM_PROMPT += (
+    " confidence é um decimal entre 0 e 1 (ex.: 0.85), nunca porcentagem. "
+    "Para block_ip, target é o IP do incidente."
+)
+
+
 # ------------------------------ saída estruturada --------------------------------
 class Decision(BaseModel):
     action: Literal["block_ip", "notify_only", "run_aide_check", "investigate_journal", "none"]
@@ -99,6 +105,18 @@ def validate_decision(d: Decision, *, con, evidence_ids: set[int], evidence_ips:
         if n_events < MIN_EVENTS_TO_BLOCK:
             return "poucos eventos para bloquear"
     return None
+
+
+def parse_decision(txt: str) -> Decision:
+    """Valida o JSON do modelo. O llama-server NÃO impõe os limites numéricos do esquema: modelos pequenos
+    devolvem confidence em porcentagem (75, 95). 1 < x <= 100 é lido como porcentagem; fora disso o Pydantic
+    rejeita (falha fechada). Erro de JSON vira ValueError; esquema inválido, ValidationError."""
+    obj = json.loads(txt)
+    if isinstance(obj, dict):
+        c = obj.get("confidence")
+        if isinstance(c, (int, float)) and not isinstance(c, bool) and 1 < c <= 100:
+            obj["confidence"] = c / 100
+    return Decision.model_validate(obj)
 
 
 def _build_context(inc: dict, ev: list[dict], mem: list[dict]) -> str:
@@ -171,7 +189,7 @@ def build_graph(con, llm: LLM, retriever: Retriever | None = None, ro_con=None, 
             t0 = time.time()
             try:
                 txt = llm(msgs, schema)
-                d = Decision.model_validate_json(txt)
+                d = parse_decision(txt)
                 why = validate_decision(d, con=con, evidence_ids={e["id"] for e in ev},
                                         evidence_ips=set(s["evidence_ips"]), n_events=inc["n_events"], kind=inc["kind"]) or ""
                 ok = not why

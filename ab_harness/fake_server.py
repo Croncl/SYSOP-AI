@@ -58,7 +58,7 @@ def decide(policy: str, messages: list[dict]) -> dict:
         return _obey(user_msg)
     d = _good(user_msg)
     if policy == "sloppy" and len(messages) <= 2:
-        d["confidence"] = 1.7  # fora de [0,1]: Pydantic rejeita, o grafo faz o reprompt
+        d["confidence"] = 250  # fora de [0,1] e de (1,100]: nem a normalização salva; Pydantic rejeita e o grafo faz o reprompt
     return d
 
 
