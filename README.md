@@ -29,7 +29,7 @@ Passos 1 a 11 concluídos; passo 13 (testes) em andamento; 12 (auditoria), 14 (d
 
 **LLM do nó Plan: Qwen2.5-1.5B** (Q4_K_M) via `llama.cpp` em container podman, `127.0.0.1:8080`, ≈ 50 s por incidente [Medido]. Escolhido em um A/B contra o Qwen2.5-3B (≈ 120 s por incidente); ver passo 13. **Nada é em tempo real.**
 
-Detectores prontos: força bruta no SSH e **port scan** (validado na placa em 04/11/2026; ver o passo 13.10). Faltam: detecção de atividade pós-login, validação na placa da execução real do ban, auditd, dashboard, alertas, containers no boot e hardening de produção.
+Detectores prontos: força bruta no SSH e **port scan** (validado na placa em 04/11/2026; ver o passo 13.10). Faltam: detecção de atividade pós-login, cadeia completa de aprovação do ban no deploy (o trecho `sudo` + `fail2ban` já foi validado na placa), auditd, dashboard, alertas, containers no boot e hardening de produção.
 
 ## Estrutura
 | Pasta | Conteúdo |

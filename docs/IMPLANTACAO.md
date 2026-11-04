@@ -20,7 +20,7 @@
 | 10 | Busca semântica | Concluído |
 | 11 | Integração com LLM | Concluído (MCP movido para o passo 15; modelo do Plan trocado no passo 13) |
 | 12 | Logs e auditoria | Pendente |
-| 13 | Testes | **Em andamento** (A/B de modelos do Plan, regra por tipo de incidente e detecção de port scan concluídos; execução real do ban, integração e demais testes pendentes) |
+| 13 | Testes | **Em andamento** (A/B de modelos do Plan, regra por tipo de incidente e detecção de port scan concluídos; trecho `sudo` + `fail2ban` do ban validado na placa; cadeia completa de aprovação no deploy, integração e demais testes pendentes) |
 | 14 | Deploy | Pendente |
 | 15 | Hardening para produção | Pendente |
 
@@ -583,9 +583,9 @@ Antes da regra por tipo, na fase 2: o 3B teve **1 escape real** (obedeceu o text
 
 ### 13.8 Pendências
 1. Rodar `run_all.sh full` (hostis × 3) com o 1.5B de produção.
-2. **Validar na placa a execução real do ban** (`sudo` + `fail2ban-client` + `is_banned`), usando um IP de documentação (ex.: `203.0.113.50`), com o arquivo de aprovações no deploy real. Ainda não foi exercitada.
+2. **Cadeia completa do ban no deploy:** o elo `sudo` + `fail2ban-client` + `is_banned` foi validado (13.12), mas o grafo executando como `sysop` com a aprovação gravada em arquivo separado ainda não: `/var/lib/sysopai-approvals` não existe e o administrador não lê `/var/lib/sysopai` (`0700`); desenho no passo 14.
 3. Detecção de **atividade pós-login** (auditd, fase 2) e resolver `post_login_activity` **por código, sem LLM** (a regra por tipo já garante `notify_only`, mas o LLM só gasta tempo e reprompts).
-4. Proteger o administrador em `protected_networks`: a faixa do Tailscale (os endereços `100.x` são fixos por dispositivo) em vez do IP da rede doméstica, que é DHCP. Reservar o IP da placa no roteador.
+4. Reservar o IP da placa no DHCP do roteador. A faixa do Tailscale já está em `protected_networks` e no `ignoreip` do `fail2ban` (13.12).
 5. `aide_change`: regra determinística (opção C da 11.6).
 6. Decidir se a **mesma consolidação de incidentes** do port scan (13.10) vale para `ssh_bruteforce`, que usa a mesma agregação por janela.
 7. Containers do LLM **no boot**: em 04/11 a placa aparentemente reiniciou (o `/tmp` foi limpo) e o `llama-plan-15b` não estava rodando, com o `/health` sem resposta; foi preciso `podman start` à mão (passo 14).
@@ -652,3 +652,27 @@ Detalhes, limites e uso individual do runner em `ab_harness/README.md`.
 3. Matriz de suporte: Debian e Ubuntu como alvo primário; demais distribuições, melhor esforço.
 4. Teste de integração em VM Debian x86_64 com o coletor, o UFW e o `fail2ban` reais.
 O escopo continua sendo **máquinas do próprio administrador**.
+
+
+### 13.12 Execução real do ban e `fail2ban` na placa (validação parcial)
+**Data:** 04/11/2026 · **Host:** `opad-master` · [Medido na placa, como `opad` e como `sysop`].
+
+| # | Verificação | Resultado |
+|---|---|---|
+| 1 | Usuário de serviço | `sysop`, uid 995, grupos `sysop` e `systemd-journal` (lê o journal sem root). `sudoers` NOPASSWD **só** para `ufw status`, `ufw status numbered`, `fail2ban-client get sshd banip` e `fail2ban-client set sshd banip *` |
+| 2 | Ban real pelo `sysop` (`sudo -n`) de `203.0.113.50` (IP de documentação, não roteável) | Retorno `1`; o IP aparece em `get sshd banip`, que é o mesmo comando da verificação do agente (Reflect). O desfazer (`unbanip`) só como administrador: o `sysop` não o tem, de propósito. Jail de volta a 0 banidos |
+| 3 | Negativos como `sysop` | `fail2ban-client status` e `set sshd unbanip 1.2.3.4` recusados (`a password is required`): privilégio mínimo confirmado |
+| 4 | `ignoreip` do jail `sshd` | Estava **vazio** (`No IP address/network is ignored`). Criado `/etc/fail2ban/jail.d/sysopai.local` com `ignoreip` = loopback, `10.10.0.0/24`, `192.168.0.1/32`, `100.64.0.0/10` e `fd7a:115c:a1e0::/48`; `fail2ban-client -t` OK e `reload` OK. Decisão do responsável: incluir a faixa do Tailscale. Efeito: quem entra por esses endereços não é banido por errar a senha; acesso pela rede doméstica (`192.168.0.x`) continua sujeito ao ban automático |
+| 5 | Ban **manual** de um IP protegido (`banip 10.10.0.99`, endereço inexistente da LAN do cluster) | **O `ignoreip` não o impede:** retorno `1` e o IP foi listado (desfeito em seguida) |
+| 6 | Banco de produção | `/var/lib/sysopai/sysop.db` **não existia** (o arquivo de 0 bytes foi criado pelo cliente `sqlite3` ao sondar). Inicializado como `sysop` com `db.init` (esquema atual, quatro redes protegidas semeadas) e acrescentadas `100.64.0.0/10` e `fd7a:115c:a1e0::/48`. `/var/lib/sysopai` é a pasta pessoal do `sysop` (`0700`) |
+| 7 | Acesso do `sysop` ao código | Conseguiu ler o projeto e o `venv` em `/home/projetos/SYSOP-AI` (foi assim que a inicialização rodou) |
+
+**O que isto prova.** O elo privilegiado do ban (`sudoers` → `fail2ban` → verificação) funciona para o usuário de serviço e é mínimo.
+
+**O que não prova.** A cadeia completa com o grafo executando como `sysop` e a aprovação gravada em arquivo separado: depende do passo 14 (pasta de aprovações e permissões).
+
+**Achados e decisões.**
+1. **O `ignoreip` protege só a detecção automática do `fail2ban`.** O `banip` manual, que é o que o agente usa, o ignora (linha 5). Somado ao `*` do `sudoers`, que não valida o argumento, a **única barreira** contra o agente banir a LAN, o roteador ou o administrador é o código: `protected_networks` no Triage (o IP protegido nem chega ao LLM), `validate_decision` e a revalidação na execução (13.5 e testes). Passa a ser o ponto crítico a manter coberto por testes.
+2. **Hardening (passo 15):** trocar o `*` do `sudoers` por um script *wrapper* que valide o IP (formato e `protected_networks`) antes de chamar o `fail2ban-client`, de modo que a barreira deixe de depender só do código do agente.
+3. O `sysop` lê o código do projeto na pasta de um usuário (`/home/projetos`). No deploy, o código deve ficar numa pasta de dono `root`, legível, mas **não gravável** pelo `sysop`, para que um agente comprometido não altere o próprio código.
+4. As redes protegidas do banco de produção foram ajustadas **por instalação** (linha 6): o Tailscale não foi acrescentado ao `schema.sql` por ser específico desta máquina (ver 13.11).
