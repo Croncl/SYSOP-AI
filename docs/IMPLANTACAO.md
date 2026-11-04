@@ -21,7 +21,7 @@
 | 11 | Integração com LLM | Concluído (MCP movido para o passo 15; modelo do Plan trocado no passo 13) |
 | 12 | Logs e auditoria | Pendente |
 | 13 | Testes | **Em andamento** (A/B de modelos do Plan, regra por tipo de incidente e detecção de port scan concluídos; trecho `sudo` + `fail2ban` do ban validado na placa; cadeia completa de aprovação no deploy, integração e demais testes pendentes) |
-| 14 | Deploy | Pendente |
+| 14 | Deploy | **Em andamento** (container do LLM no boot concluído; unidades do coletor e do agente, cadeia de aprovação e permissões do deploy pendentes) |
 | 15 | Hardening para produção | Pendente |
 
 ---
@@ -578,7 +578,7 @@ Antes da regra por tipo, na fase 2: o 3B teve **1 escape real** (obedeceu o text
 - A fase 2 do A/B testa só a **decisão do modelo**. A detecção de `port_scan` existe agora (13.10); a de `post_login_activity` **ainda não** (e `integrity_change` aparece só como tipo no esquema).
 - O IP **dinâmico** de um administrador não está em `protected_networks`; hoje o que o protege é a regra por tipo (só em pós-login) e o modelo.
 - Temperatura sustentada de 92 a 93 °C durante as rodadas (pico anterior de 96,3 °C): possível limitação térmica, não medida.
-- Os containers do LLM **não sobem sozinhos no boot** (continua no passo 14). Durante o A/B o `llama-server` fica ocupado: o agente de produção não deve rodar nesse período.
+- O container do LLM de produção sobe no boot desde 04/11 (passo 14.1); `llama-plan` e `llama-ab-15b` ficam parados de propósito. Durante o A/B o `llama-server` fica ocupado: o agente de produção não deve rodar nesse período.
 - `aide_change` e `success_after_fails` continuam errando nos dois modelos em sentidos opostos.
 
 ### 13.8 Pendências
@@ -588,7 +588,7 @@ Antes da regra por tipo, na fase 2: o 3B teve **1 escape real** (obedeceu o text
 4. Reservar o IP da placa no DHCP do roteador. A faixa do Tailscale já está em `protected_networks` e no `ignoreip` do `fail2ban` (13.12).
 5. `aide_change`: regra determinística (opção C da 11.6).
 6. Decidir se a **mesma consolidação de incidentes** do port scan (13.10) vale para `ssh_bruteforce`, que usa a mesma agregação por janela.
-7. Containers do LLM **no boot**: em 04/11 a placa aparentemente reiniciou (o `/tmp` foi limpo) e o `llama-plan-15b` não estava rodando, com o `/health` sem resposta; foi preciso `podman start` à mão (passo 14).
+7. ~~Containers do LLM no boot~~ resolvido para o `llama-plan-15b` (passo 14.1). Resta investigar o `llama-embed`, parado com `Exited (1)`.
 8. Portabilidade para outros Linux: parametrizar host, unidade SSH, jail e redes protegidas (13.11).
 9. Recalibrar tudo se o prompt ou o modelo mudarem (reexecutar `run_all.sh`).
 
@@ -676,3 +676,41 @@ O escopo continua sendo **máquinas do próprio administrador**.
 2. **Hardening (passo 15):** trocar o `*` do `sudoers` por um script *wrapper* que valide o IP (formato e `protected_networks`) antes de chamar o `fail2ban-client`, de modo que a barreira deixe de depender só do código do agente.
 3. O `sysop` lê o código do projeto na pasta de um usuário (`/home/projetos`). No deploy, o código deve ficar numa pasta de dono `root`, legível, mas **não gravável** pelo `sysop`, para que um agente comprometido não altere o próprio código.
 4. As redes protegidas do banco de produção foram ajustadas **por instalação** (linha 6): o Tailscale não foi acrescentado ao `schema.sql` por ser específico desta máquina (ver 13.11).
+
+
+---
+
+## Passo 14 — Deploy (em andamento)
+
+> Este passo está **parcial**. Foi feito o container do LLM no boot. Unidades do coletor e do agente, cadeia de aprovação e permissões do deploy continuam pendentes.
+
+### 14.1 Container do LLM no boot
+**Data:** 04/11/2026 · **Host:** `opad-master` · **Arquivo:** `~/.config/systemd/user/container-llama-plan-15b.service` (da conta `opad`, **fora** do repositório).
+
+**Problema [Medido].** Na primeira tentativa de rodar o agente no dia, o `/health` do `llama-server` não respondeu: o container não estava rodando (a placa tinha reiniciado e o `/tmp` fora limpo), e foi preciso um `podman start` à mão. Sem modelo, o agente não decide nada.
+
+**Diagnóstico [Medido].** `podman` 4.3.1 **rootless** na conta `opad` (uid 1001); política de reinício do container **vazia**; `Linger=no` (serviços de usuário não sobem antes do login); `podman-restart.service` existe, mas está desabilitado. O `podman` 4.3.1 **não tem** `podman update --restart` nem Quadlet, então não dá para mudar a política de um container já criado nem descrevê-lo em arquivo `.container`.
+
+**Decisão.** Um serviço `systemd` de **usuário** que reaproveita o container existente (sem recriá-lo; as flags `-np 1 -c 2048 -t 4`, `--memory=4g`, `--cap-drop=ALL`, modelo `:ro`, `--network=host` ficam como estão):
+```bash
+sudo loginctl enable-linger opad
+mkdir -p ~/.config/systemd/user && cd ~/.config/systemd/user
+podman generate systemd --name --files --restart-policy=on-failure llama-plan-15b
+systemctl --user daemon-reload && systemctl --user enable container-llama-plan-15b.service
+```
+O serviço faz `podman start llama-plan-15b` (`Type=forking`, `Restart=on-failure`, `WantedBy=default.target`).
+
+**Validação [Medido, 04/11/2026 20:34].** Após reinício da placa (`uptime` 3 min): container `Up`, serviço `active (running)` desde 20:31:06 e `/health` = `{"status":"ok"}`, **sem nenhum comando manual**. Persistiram ao reinício: `ignoreip` do `fail2ban` (6 itens), UFW ativo com `41641/udp DENY` e as 6 redes de `protected_networks` no banco de produção.
+
+**Limites e riscos.**
+- Só o `llama-plan-15b` sobe no boot. O `llama-embed` (RAG) está com `Exited (1)` há 5 dias, ainda **não investigado**; o RAG degrada para "sem memória" e o agente funciona.
+- O arquivo do serviço contém o caminho do `conmon.pid` do container atual: se o container for **recriado**, o serviço precisa ser gerado de novo (comando acima). Por isso o arquivo não foi versionado.
+- `podman generate systemd` é o método disponível no 4.3.1; versões mais novas do `podman` preferem Quadlet, e a migração deve reescrever o serviço nesse formato (ver 13.11, portabilidade).
+- O serviço sobe o modelo, não o agente: o coletor e o `run-once` ainda não têm unidade própria.
+
+### 14.2 Pendências do passo 14
+1. **Cadeia de aprovação no deploy:** criar a pasta de aprovações (administrador escreve, `sysop` só lê) e resolver o fato de o administrador não ler `/var/lib/sysopai` (`0700`).
+2. Unidades `systemd` do coletor e do agente como `sysop`.
+3. Código do projeto em pasta de dono `root`, legível e **não gravável** pelo `sysop` (13.12, achado 3).
+4. Investigar o `llama-embed` (`podman logs llama-embed --tail 20`).
+5. Reservar o IP da placa no DHCP do roteador.
