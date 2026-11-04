@@ -117,3 +117,67 @@ def test_auditoria_registra_incidente(con):
     triage.open_incidents(con, now=now)
     ev = con.execute("SELECT detail FROM audit_log WHERE event='incident_opened'").fetchall()
     assert len(ev) == 1 and '"port_scan"' in ev[0][0]
+
+# --- varredura em andamento = UM incidente (achado no teste real na placa) -----------------------------------
+def test_varredura_em_lotes_vira_um_incidente(con):
+    now = 10_000
+    _feed(con, "198.51.100.7", range(1, 13), now - 60)                 # 12 portas: abre
+    ids = triage.open_incidents(con, now=now)
+    assert len(ids) == 1
+    _feed(con, "198.51.100.7", range(13, 40), now - 30)                # a varredura continua
+    assert triage.open_incidents(con, now=now) == []                   # nada de incidente novo
+    _feed(con, "198.51.100.7", range(40, 160), now - 10)
+    assert triage.open_incidents(con, now=now) == []
+    assert _kinds(con) == [("port_scan", "198.51.100.7")]
+    inc = con.execute("SELECT * FROM incidents").fetchone()
+    assert inc["n_events"] == 159 and inc["severity"] == "high"       # 159 portas distintas
+    assert "159 portas distintas" in inc["summary"] and inc["last_ts"] == now - 10
+    assert con.execute("SELECT count(*) FROM raw_events WHERE incident_id IS NULL").fetchone()[0] == 0
+
+
+def test_poucos_eventos_novos_tambem_sao_anexados(con):
+    now = 10_000
+    _feed(con, "198.51.100.7", range(1, 13), now - 60)
+    triage.open_incidents(con, now=now)
+    _feed(con, "198.51.100.7", [500, 501], now - 5)                    # só 2 portas novas: abaixo do limiar
+    assert triage.open_incidents(con, now=now) == []
+    assert con.execute("SELECT n_events FROM incidents").fetchone()[0] == 14
+
+
+def test_incidente_encerrado_nao_recebe_eventos_novos(con):
+    now = 10_000
+    _feed(con, "198.51.100.7", range(1, 13), now - 60)
+    triage.open_incidents(con, now=now)
+    con.execute("UPDATE incidents SET status = 'mitigated'")
+    _feed(con, "198.51.100.7", range(100, 115), now - 5)
+    assert len(triage.open_incidents(con, now=now + 1)) == 1           # varredura nova, incidente novo
+    assert len(_kinds(con)) == 2
+
+
+def test_incidente_antigo_fora_da_janela_nao_recebe(con):
+    now = 10_000
+    _feed(con, "198.51.100.7", range(1, 13), now - 1000)
+    triage.open_incidents(con, now=now - 900)
+    _feed(con, "198.51.100.7", range(100, 115), now - 5)
+    assert len(triage.open_incidents(con, now=now)) == 1
+    assert len(_kinds(con)) == 2
+
+
+def test_anexar_nao_mistura_ips(con):
+    now = 10_000
+    _feed(con, "198.51.100.7", range(1, 13), now - 60)
+    triage.open_incidents(con, now=now)
+    _feed(con, "198.51.100.8", range(1, 6), now - 5)                   # outro IP, poucos eventos
+    assert triage.open_incidents(con, now=now) == []
+    assert con.execute("SELECT n_events FROM incidents").fetchone()[0] == 12
+    assert con.execute("SELECT count(*) FROM raw_events WHERE src_ip='198.51.100.8' AND incident_id IS NOT NULL").fetchone()[0] == 0
+
+
+def test_atualizacao_e_auditada(con):
+    now = 10_000
+    _feed(con, "198.51.100.7", range(1, 13), now - 60)
+    triage.open_incidents(con, now=now)
+    _feed(con, "198.51.100.7", range(13, 20), now - 5)
+    triage.open_incidents(con, now=now)
+    ev = [r[0] for r in con.execute("SELECT detail FROM audit_log WHERE event='incident_updated'")]
+    assert len(ev) == 1 and '"port_scan"' in ev[0]

@@ -88,40 +88,82 @@ def open_incidents(con: sqlite3.Connection, now: int | None = None, window_s: in
     return ids
 
 
+def _port_stats(con: sqlite3.Connection, incident_id: int) -> tuple[int, int, int, int]:
+    """(portas distintas, eventos, primeiro ts, último ts) de TODOS os eventos já ligados ao incidente."""
+    ports: set[int] = set()
+    n, f, l = 0, None, None
+    for r in con.execute("SELECT ts, raw FROM raw_events WHERE incident_id = ?", (incident_id,)):
+        m = DPT.search(r["raw"])
+        if m and int(m.group(1)) <= 65535:
+            ports.add(int(m.group(1)))
+            n += 1
+            f = r["ts"] if f is None else min(f, r["ts"])
+            l = r["ts"] if l is None else max(l, r["ts"])
+    return len(ports), n, f or 0, l or 0
+
+
+def _scan_severity(n_ports: int) -> str:
+    return "critical" if n_ports >= 1000 else "high" if n_ports >= 100 else "medium"
+
+
 def open_port_scan_incidents(con: sqlite3.Connection, now: int | None = None, window_s: int = 600,
                              port_threshold: int = 10) -> list[int]:
     """port_scan: um IP que bate em >= port_threshold portas DISTINTAS bloqueadas pelo UFW na janela.
     Conta portas distintas, não eventos: 500 bloqueios na mesma porta é insistência, não varredura.
+    Uma varredura é UM incidente: se o IP já tem um port_scan ativo (open/analyzed/pending_approval) cujo
+    último evento está na janela, os eventos novos são ANEXADOS a ele (e contagem/severidade recalculadas),
+    em vez de abrir outro a cada 10 portas. Retorna só os ids dos incidentes NOVOS.
     Severidade e contagens vêm do SQL/código, nunca do modelo."""
     now = now or int(time.time())
     ids: list[int] = []
     cands = con.execute(
         "SELECT src_ip, count(*) n FROM raw_events "
         "WHERE ts >= ? AND event_type = 'ufw_block' AND src_ip IS NOT NULL AND incident_id IS NULL "
-        "GROUP BY src_ip HAVING n >= ?", (now - window_s, port_threshold)).fetchall()
-    for c in cands:  # só os IPs com eventos suficientes: o parse do raw fica barato
+        "GROUP BY src_ip", (now - window_s,)).fetchall()
+    for c in cands:
+        ip = c["src_ip"]
+        existing = con.execute(
+            "SELECT id FROM incidents WHERE kind = 'port_scan' AND src_ip = ? "
+            "AND status IN ('open','analyzed','pending_approval') AND last_ts >= ? ORDER BY id DESC LIMIT 1",
+            (ip, now - window_s)).fetchone()
+        if existing is None and c["n"] < port_threshold:
+            continue  # poucos eventos e nenhum incidente aberto: o parse do raw nem é feito
         ev: list[tuple[int, int]] = []
         ports: set[int] = set()
         for r in con.execute(
                 "SELECT id, ts, raw FROM raw_events WHERE src_ip = ? AND ts >= ? "
-                "AND event_type = 'ufw_block' AND incident_id IS NULL", (c["src_ip"], now - window_s)):
+                "AND event_type = 'ufw_block' AND incident_id IS NULL", (ip, now - window_s)):
             m = DPT.search(r["raw"])
             if m and int(m.group(1)) <= 65535:
                 ports.add(int(m.group(1)))
                 ev.append((r["id"], r["ts"]))
+        if not ev:
+            continue
+        if existing is not None:  # mesma varredura em andamento: anexa e recalcula
+            iid = existing["id"]
+            con.executemany("UPDATE raw_events SET incident_id = ? WHERE id = ?", [(iid, i) for i, _ in ev])
+            np_, n, first, last = _port_stats(con, iid)
+            sev = _scan_severity(np_)
+            con.execute("UPDATE incidents SET n_events = ?, first_ts = ?, last_ts = ?, severity = ?, summary = ? "
+                        "WHERE id = ?",
+                        (n, first, last, sev,
+                         f"{n} bloqueios UFW de {ip} em {np_} portas distintas", iid))
+            db.audit(con, "collector", "incident_updated",
+                     {"id": iid, "kind": "port_scan", "severity": sev, "ip": ip, "n": n, "ports": np_})
+            continue
         if len(ports) < port_threshold:
             continue
         np_, n = len(ports), len(ev)
-        sev = "critical" if np_ >= 1000 else "high" if np_ >= 100 else "medium"
+        sev = _scan_severity(np_)
         cur = con.execute(
             "INSERT OR IGNORE INTO incidents(opened_at,kind,severity,src_ip,n_events,first_ts,last_ts,summary)"
             " VALUES (?,?,?,?,?,?,?,?)",
-            (now, "port_scan", sev, c["src_ip"], n, min(t for _, t in ev), max(t for _, t in ev),
-             f"{n} bloqueios UFW de {c['src_ip']} em {np_} portas distintas em {window_s // 60} min"))
+            (now, "port_scan", sev, ip, n, min(t for _, t in ev), max(t for _, t in ev),
+             f"{n} bloqueios UFW de {ip} em {np_} portas distintas em {window_s // 60} min"))
         if cur.rowcount:
             iid = cur.lastrowid
             db.audit(con, "collector", "incident_opened",
-                     {"id": iid, "kind": "port_scan", "severity": sev, "ip": c["src_ip"], "n": n, "ports": np_})
+                     {"id": iid, "kind": "port_scan", "severity": sev, "ip": ip, "n": n, "ports": np_})
             con.executemany("UPDATE raw_events SET incident_id = ? WHERE id = ?", [(iid, i) for i, _ in ev])
             ids.append(iid)
     return ids
