@@ -10,3 +10,7 @@ data/
 ab_harness/results/
 ab_harness/*.log
 *.gguf
+.venv/
+logs/
+*.bak-*
+.pytest_cache/

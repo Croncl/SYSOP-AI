@@ -24,6 +24,8 @@ RULES: list[tuple[re.Pattern, str, str, str]] = [
     (re.compile(rf"\] Ban {IPV4}"), "f2b_ban", "minor", "fail2ban"),
     (re.compile(r"AIDE found differences|changed files:"), "aide_change", "critical", "aide"),
 ]
+# porta de destino em linhas [UFW BLOCK]; \b evita casar SPT=
+DPT = re.compile(r"\bDPT=(\d{1,5})\b")
 _CTRL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]|\x1b\[[0-9;]*[A-Za-z]")
 
 
@@ -60,7 +62,7 @@ def ingest(con: sqlite3.Connection, source: str, host: str, ts: int, raw: str, b
 
 
 def open_incidents(con: sqlite3.Connection, now: int | None = None, window_s: int = 600,
-                   threshold: int = 10) -> list[int]:
+                   threshold: int = 10, port_threshold: int = 10) -> list[int]:
     """Um incidente por (kind, IP) por janela. Severidade por contagem — decisão do CÓDIGO."""
     now = now or int(time.time())
     ids = []
@@ -81,5 +83,45 @@ def open_incidents(con: sqlite3.Connection, now: int | None = None, window_s: in
                      {"id": iid, "kind": "ssh_bruteforce", "severity": sev, "ip": r["src_ip"], "n": r["n"]})
             con.execute("UPDATE raw_events SET incident_id=? WHERE src_ip=? AND ts>=? AND incident_id IS NULL "
                         "AND label IN ('bruteforce','critical')", (iid, r["src_ip"], now - window_s))
+            ids.append(iid)
+    ids += open_port_scan_incidents(con, now, window_s, port_threshold)
+    return ids
+
+
+def open_port_scan_incidents(con: sqlite3.Connection, now: int | None = None, window_s: int = 600,
+                             port_threshold: int = 10) -> list[int]:
+    """port_scan: um IP que bate em >= port_threshold portas DISTINTAS bloqueadas pelo UFW na janela.
+    Conta portas distintas, não eventos: 500 bloqueios na mesma porta é insistência, não varredura.
+    Severidade e contagens vêm do SQL/código, nunca do modelo."""
+    now = now or int(time.time())
+    ids: list[int] = []
+    cands = con.execute(
+        "SELECT src_ip, count(*) n FROM raw_events "
+        "WHERE ts >= ? AND event_type = 'ufw_block' AND src_ip IS NOT NULL AND incident_id IS NULL "
+        "GROUP BY src_ip HAVING n >= ?", (now - window_s, port_threshold)).fetchall()
+    for c in cands:  # só os IPs com eventos suficientes: o parse do raw fica barato
+        ev: list[tuple[int, int]] = []
+        ports: set[int] = set()
+        for r in con.execute(
+                "SELECT id, ts, raw FROM raw_events WHERE src_ip = ? AND ts >= ? "
+                "AND event_type = 'ufw_block' AND incident_id IS NULL", (c["src_ip"], now - window_s)):
+            m = DPT.search(r["raw"])
+            if m and int(m.group(1)) <= 65535:
+                ports.add(int(m.group(1)))
+                ev.append((r["id"], r["ts"]))
+        if len(ports) < port_threshold:
+            continue
+        np_, n = len(ports), len(ev)
+        sev = "critical" if np_ >= 1000 else "high" if np_ >= 100 else "medium"
+        cur = con.execute(
+            "INSERT OR IGNORE INTO incidents(opened_at,kind,severity,src_ip,n_events,first_ts,last_ts,summary)"
+            " VALUES (?,?,?,?,?,?,?,?)",
+            (now, "port_scan", sev, c["src_ip"], n, min(t for _, t in ev), max(t for _, t in ev),
+             f"{n} bloqueios UFW de {c['src_ip']} em {np_} portas distintas em {window_s // 60} min"))
+        if cur.rowcount:
+            iid = cur.lastrowid
+            db.audit(con, "collector", "incident_opened",
+                     {"id": iid, "kind": "port_scan", "severity": sev, "ip": c["src_ip"], "n": n, "ports": np_})
+            con.executemany("UPDATE raw_events SET incident_id = ? WHERE id = ?", [(iid, i) for i, _ in ev])
             ids.append(iid)
     return ids
