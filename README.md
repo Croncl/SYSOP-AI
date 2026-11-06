@@ -27,7 +27,7 @@ journald · UFW · fail2ban · AIDE · (auditd, fase 2)
 ## Estado
 Passos 1 a 11 concluídos; passo 13 (testes) em andamento; 12 (auditoria) e 15 (hardening) pendentes; 14 (deploy) em andamento. **139 testes** passando. Detalhes, medições e decisões em [`docs/IMPLANTACAO.md`](docs/IMPLANTACAO.md).
 
-**LLM do nó Plan: Qwen2.5-1.5B** (Q4_K_M) via `llama.cpp` em container podman, `127.0.0.1:8080`, ≈ 50 s por incidente [Medido]. Escolhido em um A/B contra o Qwen2.5-3B (≈ 120 s por incidente); ver passo 13. **Nada é em tempo real.**
+**LLM do nó Plan: Qwen2.5-1.5B** (Q4_K_M) via `llama.cpp` em container podman, `127.0.0.1:8080`, ≈ 50 s por incidente [Medido]. Escolhido em um A/B contra o Qwen2.5-3B (≈ 120 s por incidente); em 06/11/2026 o Spark-X2.6-1.7B e o Qwen3-1.7B foram testados e reprovados (ver passo 13, seção 13.13). **Nada é em tempo real.**
 
 Detectores prontos: força bruta no SSH e **port scan** (validado na placa em 04/11/2026; ver o passo 13.10). Faltam: detecção de atividade pós-login, cadeia completa de aprovação do ban no deploy (o trecho `sudo` + `fail2ban` já foi validado na placa), auditd, dashboard, alertas, unidades `systemd` do coletor e do agente e hardening de produção. O container do LLM já sobe sozinho no boot (passo 14.1).
 
