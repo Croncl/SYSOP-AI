@@ -1,6 +1,6 @@
 """CLI do SYSOP-AI.
 
-  init | kb-ingest | run-once [--max N] | pending | approve ID [--yes] | summary [--hours H]
+  init | kb-ingest | run-once [--max N] | pending | show-action ID | approve ID [--yes] | summary [--hours H]
   simulate [--injecao] [--aprovar] | audit [--hours H] [--event E] [--limit N] | stats [--hours H]
 
 Identidade humana = usuário Unix (getpass). 'approve' RECUSA o usuário de serviço 'sysop'.
@@ -14,6 +14,9 @@ import argparse
 import getpass
 import json
 import os
+import sqlite3
+import subprocess
+import sys
 import tempfile
 import time
 import urllib.request
@@ -68,6 +71,78 @@ def _s(x, n: int = 200) -> str:
     return triage.sanitize(str(x), n)
 
 
+# ------------- leitura pelo serviço (o administrador não lê /var/lib/sysopai, que é do sysop, 0700) -------------
+def _service_db_readable() -> bool:
+    """True se este usuário abre o banco do serviço (sysop, ou desenvolvimento); False para o administrador em produção."""
+    try:
+        dbm.connect(readonly=True).close()
+        return True
+    except (sqlite3.Error, OSError):
+        return False
+
+
+def _via_sysop(args: list[str]) -> subprocess.CompletedProcess:
+    """Roda `cli.py <args>` como o usuário de serviço. O `sudo` zera o ambiente: valem os caminhos padrão de produção."""
+    cmd = ["sudo", "-u", SERVICE_USER, sys.executable, str(Path(__file__).resolve()), *args]
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ValueError(f"não foi possível executar como {SERVICE_USER}: {_s(exc)}") from exc
+
+
+def _is_int(v) -> bool:
+    return isinstance(v, int) and not isinstance(v, bool)
+
+
+def _parse_action(txt: str, action_id: int):
+    """Valida a resposta do `show-action`. O que vier do serviço é tratado como NÃO confiável: só entra se tiver
+    exatamente o formato esperado. A aprovação grava o hash de id+ts+ferramenta+argumentos que o administrador VIU;
+    se o serviço depois executar outra coisa, o hash não bate e nada executa (falha fechada)."""
+    try:
+        j = json.loads(txt)
+    except ValueError as exc:
+        raise ValueError("resposta do serviço não é JSON") from exc
+    if not isinstance(j, dict):
+        raise ValueError("resposta do serviço inválida")
+    if not (_is_int(j.get("id")) and j["id"] == action_id and _is_int(j.get("ts"))
+            and isinstance(j.get("tool"), str) and j["tool"] in T.REGISTRY
+            and isinstance(j.get("args_json"), str)):
+        raise ValueError("resposta do serviço inválida")
+    try:
+        args = json.loads(j["args_json"])
+    except ValueError as exc:
+        raise ValueError("argumentos da ação inválidos") from exc
+    if not isinstance(args, dict):
+        raise ValueError("argumentos da ação inválidos")
+    if j.get("status") != "pending":
+        raise ValueError("ação inexistente ou não pendente")
+    reason = j.get("reason")
+    row = {"id": j["id"], "ts": j["ts"], "tool": j["tool"], "args_json": j["args_json"], "status": "pending",
+           "incident_id": j.get("incident_id"), "confidence": j.get("confidence"),
+           "reason": reason if isinstance(reason, str) else ""}
+    inc = None
+    if isinstance(j.get("kind"), str):
+        inc = {"kind": j["kind"], "severity": j.get("severity"), "src_ip": j.get("src_ip"),
+               "n_events": j.get("n_events")}
+    return row, inc
+
+
+def _load_action(action_id: int):
+    """(linha da ação pendente, incidente). Lê direto se possível; senão pelo serviço (sudo -u sysop)."""
+    if _service_db_readable():
+        con = dbm.connect(readonly=True)
+        row = con.execute("SELECT * FROM agent_actions WHERE id=?", (action_id,)).fetchone()
+        if row is None or row["status"] != "pending":
+            raise ValueError("ação inexistente ou não pendente")
+        inc = con.execute("SELECT kind,severity,src_ip,n_events FROM incidents WHERE id=?",
+                          (row["incident_id"],)).fetchone()
+        return row, inc
+    r = _via_sysop(["show-action", str(int(action_id))])
+    if r.returncode != 0:
+        raise ValueError("leitura pelo serviço falhou: " + _s(r.stderr or r.stdout or "sem detalhe", 200))
+    return _parse_action(r.stdout, int(action_id))
+
+
 # ------------------------------------ comandos -----------------------------------
 def cmd_init(a) -> int:
     dbm.init().close()
@@ -109,6 +184,14 @@ def cmd_run_once(a) -> int:
 
 
 def cmd_pending(a) -> int:
+    if not _service_db_readable():          # administrador em produção: lista pelo serviço
+        r = _via_sysop(["pending"])
+        for line in (r.stdout or "").splitlines():
+            print(_s(line, 400))
+        if r.returncode != 0:
+            print("erro:", _s(r.stderr or "sem detalhe", 200))
+            return 2
+        return 0
     con = dbm.connect(readonly=True)
     rows = con.execute("SELECT * FROM agent_actions WHERE status='pending' ORDER BY ts").fetchall()
     if not rows:
@@ -123,11 +206,7 @@ def cmd_pending(a) -> int:
 
 def cmd_approve(a) -> int:
     admin = _admin()
-    con = dbm.connect(readonly=True)
-    row = con.execute("SELECT * FROM agent_actions WHERE id=?", (a.action_id,)).fetchone()
-    if row is None or row["status"] != "pending":
-        raise ValueError("ação inexistente ou não pendente")
-    inc = con.execute("SELECT kind,severity,src_ip,n_events FROM incidents WHERE id=?", (row["incident_id"],)).fetchone()
+    row, inc = _load_action(a.action_id)
     print(f"ação #{row['id']}: {row['tool']} {_s(row['args_json'], 100)}")
     if inc:
         print(f"incidente: {inc['kind']} sev={inc['severity']} ip={inc['src_ip']} eventos={inc['n_events']}")
@@ -137,6 +216,21 @@ def cmd_approve(a) -> int:
         return 1
     approvals.grant(row, admin)
     print(f"aprovada por {admin}. O serviço executa no próximo run-once (a aprovação vale 24 h).")
+    return 0
+
+
+def cmd_show_action(a) -> int:
+    """Uma ação em JSON de uma linha (somente leitura). Serve ao `approve` do administrador, que não lê o banco do serviço."""
+    con = dbm.connect(readonly=True)
+    row = con.execute("SELECT * FROM agent_actions WHERE id=?", (a.action_id,)).fetchone()
+    if row is None:
+        raise ValueError("ação inexistente")
+    out = {k: row[k] for k in ("id", "ts", "tool", "args_json", "status", "incident_id", "confidence")}
+    out["reason"] = str(row["reason"] or "")[:500]
+    inc = con.execute("SELECT kind,severity,src_ip,n_events FROM incidents WHERE id=?", (row["incident_id"],)).fetchone()
+    if inc:
+        out.update({k: inc[k] for k in ("kind", "severity", "src_ip", "n_events")})
+    print(json.dumps(out, ensure_ascii=True, sort_keys=True))
     return 0
 
 
@@ -258,6 +352,8 @@ def main(argv: list[str] | None = None) -> int:
     r = sub.add_parser("run-once")
     r.add_argument("--max", type=int, default=3)
     sub.add_parser("pending")
+    w = sub.add_parser("show-action")
+    w.add_argument("action_id", type=int)
     p = sub.add_parser("approve")
     p.add_argument("action_id", type=int)
     p.add_argument("--yes", action="store_true")
@@ -274,7 +370,7 @@ def main(argv: list[str] | None = None) -> int:
     t.add_argument("--hours", type=int, default=24)
     a = ap.parse_args(argv)
     fn = {"init": cmd_init, "kb-ingest": cmd_kb_ingest, "run-once": cmd_run_once, "pending": cmd_pending,
-          "approve": cmd_approve, "summary": cmd_summary, "simulate": cmd_simulate, "audit": cmd_audit, "stats": cmd_stats}[a.cmd]
+          "approve": cmd_approve, "show-action": cmd_show_action, "summary": cmd_summary, "simulate": cmd_simulate, "audit": cmd_audit, "stats": cmd_stats}[a.cmd]
     try:
         return fn(a)
     except (PermissionError, ValueError) as exc:

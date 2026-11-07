@@ -25,11 +25,11 @@ journald · UFW · fail2ban · AIDE · (auditd, fase 2)
 - Ferramentas novas propostas pelo agente só valem após validação AST, sandbox sem rede e aprovação humana.
 
 ## Estado
-Passos 1 a 11 concluídos; passo 13 (testes) em andamento; 12 (auditoria) e 15 (hardening) pendentes; 14 (deploy) em andamento. **139 testes** passando. Detalhes, medições e decisões em [`docs/IMPLANTACAO.md`](docs/IMPLANTACAO.md).
+Passos 1 a 11 concluídos; passo 13 (testes) em andamento; 12 (auditoria) e 15 (hardening) pendentes; 14 (deploy) em andamento. **170 testes** passando. Detalhes, medições e decisões em [`docs/IMPLANTACAO.md`](docs/IMPLANTACAO.md).
 
 **LLM do nó Plan: Qwen2.5-1.5B** (Q4_K_M) via `llama.cpp` em container podman, `127.0.0.1:8080`, ≈ 50 s por incidente [Medido]. Escolhido em um A/B contra o Qwen2.5-3B (≈ 120 s por incidente); em 06/11/2026 o Spark-X2.6-1.7B e o Qwen3-1.7B foram testados e reprovados (ver passo 13, seção 13.13). **Nada é em tempo real.**
 
-Detectores prontos: força bruta no SSH e **port scan** (validado na placa em 04/11/2026; ver o passo 13.10). Faltam: detecção de atividade pós-login, cadeia completa de aprovação do ban no deploy (o trecho `sudo` + `fail2ban` já foi validado na placa), auditd, dashboard, alertas, unidades `systemd` do coletor e do agente e hardening de produção. O container do LLM já sobe sozinho no boot (passo 14.1).
+Detectores prontos: força bruta no SSH e **port scan** (validado na placa em 04/11/2026; ver o passo 13.10). Faltam: detecção de atividade pós-login, auditd, dashboard, alertas, unidades `systemd` do coletor e do agente e hardening de produção. O container do LLM já sobe sozinho no boot (passo 14.1), e a cadeia de aprovação do ban (o administrador aprova, o serviço executa e verifica) foi validada de ponta a ponta na placa em 07/11/2026 (passo 14.3).
 
 ## Estrutura
 | Pasta | Conteúdo |
@@ -61,7 +61,7 @@ Feito e validado no **Orange Pi 4 Pro** (Debian, aarch64). **Outros Linux são v
 - Latência alta em 6×A55 com ≈10 GB/s de banda; o gargalo é o prefill do prompt.
 - Testes de A/B são sintéticos, com 1 repetição por caso nos números atuais.
 - O port scan só é visto na medida em que o UFW registra: o log dele tem limite global (3/min, rajada de 10), então varreduras grandes são subestimadas. O ruído conhecido (ex.: Tailscale, UDP 41641) deve ser descartado sem log (`ufw deny`).
-- A separação de aprovação só é real com as permissões do deploy (passo 14).
+- A separação de aprovação vale com as permissões do deploy (passo 14.3): `approvals.db` do administrador, só leitura para o `sysop`. Ainda faltam o código do projeto fora do alcance de escrita do `sysop` e as unidades `systemd`.
 
 ## Documentação
 - [`docs/IMPLANTACAO.md`](docs/IMPLANTACAO.md): histórico, decisões, medições e pendências, passo a passo.
