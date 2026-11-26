@@ -108,3 +108,29 @@ def test_cli_completo(lab, tmp_path):
     md = out.read_text()
     assert "fail2ban (real, sshd-sombra)" in md and "abaixo do limiar" in md
     assert (csvd / "deteccao.csv").exists() and (csvd / "fn_fp.csv").exists()
+
+
+def test_cenarios_de_fronteira_falham_so_onde_projetados():
+    from eval_deteccao import cenarios as C
+    entries, gab = C.build()
+    entries = sorted(entries, key=RP.ts_of)
+    for g in gab:
+        g["ip"] = M.norm(g["ip"])
+    sets = {"SYSOP": M.sysop_detections(RP.incidents(RP.replay(entries)), "SYSOP-AI (replay)"),
+            "f2b": M.f2b_sim_detections(entries)}
+    res, _ = M.evaluate(gab, entries, sets)
+    fn = {n: {e["episodio"] for k in M.KINDS for e in res[n][k]["fn_list"]} for n in sets}
+    fp = {n: {d.get("episodio") or d["ip"] for k in M.KINDS for d in res[n][k]["fp_list"]} for n in sets}
+    previstos = {g["episodio"] for g in gab if g["esperado"] == "nao_detectar" and g["tipo"] != "benigno"}
+    assert fn["SYSOP"] == previstos and fp["SYSOP"] == set()
+    assert fp["f2b"] == {"B2-admin-erra-6x"}                         # bane o admin que errou a senha 6 vezes
+    assert {"S3-abaixo-do-limiar", "S4-lenta-90s", "S7-ipv6"}.isdisjoint(fn["f2b"])
+    assert {g["episodio"] for g in gab if g["tipo"] == "port_scan"} <= fn["f2b"]
+
+
+def test_limitador_do_ufw():
+    from eval_deteccao import cenarios as C
+    rajada = [C.ufw(T0 + 0.1 * i, "203.0.113.9", i + 1) for i in range(100)]
+    assert len(C.ufw_rate_limit(rajada)) == 10                       # rajada de 10, sem tempo para recarregar
+    espaçado = [C.ufw(T0 + 20 * i, "203.0.113.9", i + 1) for i in range(30)]
+    assert len(C.ufw_rate_limit(espaçado)) == 30                     # 3/min = 1 a cada 20 s: tudo passa
