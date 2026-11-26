@@ -26,9 +26,31 @@
 | ID | Descrição | Resolução proposta |
 |---|---|---|
 | C07 | Resolvido por E19 e E20: medido 2,9–3,1 tok/s (geração) e ≈10 (prefill) no 3B; 5,6–5,9 e 22–24 no 1,5B | Usar E19/E20 |
-| C09 | Tratado: 13.10, 13.12, 13.13, 14.1 e 14.3 lidos nos scripts `apply_docs_*` (E49 a E61). O `IMPLANTACAO.md` em si continua ausente; 13.1 a 13.9 não foram lidos | Anexar o arquivo para conferir o resto |
-| C10 | Continua [Aberto] (E35): o dump não traz `ab_harness/results/*.jsonl` | Procurar na placa ou refazer no M07 |
+| C09 | RESOLVIDO: `docs/IMPLANTACAO.md` completo recebido em 26/11/2026; E49 a E61 conferem com 13.10 a 14.3 e E12 a E32 com a tabela 13.3 | Usar o arquivo como fonte (D01) |
+| C10 | Continua [Aberto] (E35): o dump não traz `ab_harness/results/*.jsonl` | Refazer no M07 |
 | C20 | [CONFLITO] "31 incidentes" no texto, mas 5 são dispensados do LLM (IP protegido): o modelo decide em 26 (E11) | Dizer no texto "31 casos, 26 decididos pelo modelo" |
 | C21 | [CONFLITO] "2,4 vezes" vale só para o conjunto 1 na mesma rodada (122,9/51,1). Conjunto 2: 1,68×; outra rodada do conjunto 1: 2,17× (E16) | Citar o conjunto e a rodada, ou usar a mediana de todas as rodadas do M06 |
 | C22 | [?] O dump do repo não é claramente o commit c227789: o README dele diz 170 testes e o M01 mediu 193 | Confirmar `git log -1` do dump ou anexar o repo na tag artigo-u3-base |
 | C23 | [?] Rodada com 1 repetição por caso e seed 42 fixa (E34): as diferenças de 1 ou 2 casos entre modelos são ruído (o próprio 13.13 diz isso) | Refazer com 3 repetições e seeds 42, 43, 44 no M07 (D06) |
+| C24 | [CONFLITO] IDs repetidos: `IMPLANTACAO.md` usa D22 a D27 (arquitetura: sqlite-vec, podman etc.); o contexto mestre usa D21 a D24 (artigo) | Citar no artigo como I-D22 (implantação) e A-D22 (artigo) |
+
+---
+
+# Resolução dos conflitos C01 a C13 (M03)
+Dono = quem decide ou executa. "Claude" = eu no módulo indicado.
+
+| ID | Status | Resolução | Dono |
+|---|---|---|---|
+| C01 | Resolvido | Fonte de verdade = repo no commit c227789 + `docs/IMPLANTACAO.md`; resumo técnico só histórico | — |
+| C02 | Resolvido | 193 testes (E01) | — |
+| C03 | Resolvido na escrita | Reescrever no presente o que existe (port scan, aprovação separada, ban); o que não existe vai para limitações | Claude (M12, M13) |
+| C04 | Resolvido na escrita | "Bloquear não é válido" vale só para pós-login; port scan aceita `block_ip` (graph.py:36-39). Declarar que a detecção pós-login não existe e o incidente é inserido direto | Autores confirmam o texto |
+| C05 | Resolvido no plano | Seeds 42, 43, 44 por repetição (D06); hoje o runner usa 1 seed por rodada | Claude (M05) |
+| C06 | Aberto | Sem `.jsonl` da 1ª rodada; refazer como condição V1 | Claude (M07); autor procura em `ab_harness/results/` na placa |
+| C07 | Resolvido | Usar o medido (E19, E20) | — |
+| C08 | Resolvido | Código só tem 4 tools (tools.py:101-106); MCP e Tool Forge fora (D17) | — |
+| C09 | Resolvido | `docs/IMPLANTACAO.md` está no repo; lido o clone do commit c227789 | — |
+| C10 | Aberto | Caso que o 1,5B bloqueou como admin sem injeção não identificado | Autor procura o `.jsonl`; senão Claude (M07) |
+| C11 | Resolvido na escrita | `pseudo.py` e `retention.py` existem, mas nenhum módulo os importa e não há teste: o artigo não afirma "testado" nem "integrado" | Autores decidem se citam |
+| C12 | Aberto | Verificar as 11 chaves e os valores de literatura | Autores enviam o `.bib` (M04) |
+| C13 | Aberto | Antes do M10: `sudo fail2ban-client get sshd maxretry`; elevar só na rodada do agente (D13) | Autor (placa) |

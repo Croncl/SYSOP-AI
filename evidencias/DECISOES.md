@@ -28,3 +28,23 @@
 | D24 | Limite de 10 páginas sem referências: priorizar tabelas de O1, O2, O3; cortar texto antes de cortar resultado | Aceita | Enunciado IMD0703 | Estourar o limite |
 
 Nota do M02: D04 estava "A validar" no v1.0 e passou a "Aceita" no DIFF do M01. D21 a D24 vêm do DIFF. D22 continua "A validar" até os autores resolverem C14 a C16.
+
+---
+
+# Parte 2 — Decisões do SISTEMA que o artigo justifica (M03)
+Código lido no commit c227789. Linhas: `arquivo:linha`. Exx em `EVIDENCIAS.md`.
+
+| ID | Decisão do sistema | Motivo | Exx | Código |
+|---|---|---|---|---|
+| S01 | Um único nó LLM (Plan): 1 chamada + no máximo 1 reprompt; detecção é código | Latência de minutos por chamada; quem detecta não pode ser o modelo | E14, E45 | graph.py:188 |
+| S02 | Qwen2.5-1,5B em produção (3B só como comparação) | 2,4× mais rápido, concordância 86% vs 73%, 0 escapes nos dois | E12, E14, E16, E24, E27, E32 | — |
+| S03 | Regra de ações permitidas por tipo de incidente | O A/B achou o 3B obedecendo injeção e o 1,5B banindo o admin sem injeção | E24, E35 | graph.py:35-41, 90 |
+| S04 | Aprovação em arquivo separado, amarrada por hash (id, ts, ferramenta, args), vale 24 h | Agente comprometido não pode se auto-aprovar nem reaproveitar aprovação | E40, E58, E59 | approvals.py:143, 159-162, 209 |
+| S05 | Admin lê e aprova via `sudo -u sysop` (`show-action`); resposta do serviço tratada como não confiável | Banco do sysop é 0700; aprovação grava o hash do que o admin viu | E58, E59 | cli.py |
+| S06 | Port scan: uma varredura = um incidente (anexa eventos, recalcula) | Sem isso 1 varredura virou 5 incidentes e 5 chamadas de LLM | E49, E50 | triage.py:125-153 |
+| S07 | `parse_decision` lê confiança 1<x≤100 como porcentagem; o resto falha fechado | O llama-server não impõe os limites numéricos do esquema | E46 | graph.py:110-119 |
+| S08 | Na execução, revalida só a rede protegida e a aprovação | O mundo muda entre proposta e execução (ver D3 em REGRAS_VS_CODIGO.md) | E58 | graph.py:225, 234 |
+| S09 | `ignoreip` do fail2ban com LAN, roteador e Tailscale | Protege só o ban automático; `banip` manual o ignora, então a barreira real é o código | E57 | — |
+| S10 | Spark-1.7B e Qwen3-1.7B reprovados; fica o 1,5B | Critério fixado antes de medir; nenhum passou | E33, E36, E37 | — |
+| S11 | Falha fechada: saída inválida ou rejeitada vira `notify_only` | Nunca agir sem decisão válida | E30 | graph.py:208-209 |
+| S12 | IP protegido não chega ao LLM; só severidade ≥ medium chega | Custo e segurança | E11 | graph.py:156, 165 |
