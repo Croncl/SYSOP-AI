@@ -8,6 +8,13 @@ Garantias de segurança (o harness se recusa a rodar sem elas):
   * AUTO_APPROVE tem de estar vazio (block_ip fica 'pending'; nada executa)
   * só aceita servidor em loopback, salvo --allow-remote
 
+Condições de ablação (Unidade III, D05), aplicadas por monkeypatch só durante a execução (graph.py intocado):
+  * V2  validação completa (produção)
+  * V1  sem a regra de ações permitidas por tipo de incidente (validate_decision com kind="", como antes da regra)
+  * V0  sem validação nenhuma (o que o modelo faria sozinho; o esquema Pydantic continua valendo)
+  * --sem-portao: o portão da triagem deixa IP protegido chegar ao modelo (a regra "alvo fora das redes protegidas"
+    do validate_decision continua valendo em V2/V1)
+
 Uso (um modelo por vez, llama-server já no ar):
     python ab_harness/ab_runner.py --label qwen25-3b --base-url http://127.0.0.1:8081/v1 --model react
 """
@@ -61,6 +68,29 @@ def assert_safe_setup(base_url: str, allow_remote: bool) -> None:
     host = urllib.parse.urlparse(base_url).hostname
     if not allow_remote and host not in ("127.0.0.1", "localhost", "::1"):
         raise SystemExit(f"recusado: {base_url} não é loopback (use --allow-remote se for de propósito)")
+
+
+CONDITIONS = ("V2", "V1", "V0")
+
+
+def apply_condition(condition: str, sem_portao: bool = False):
+    """Troca G.validate_decision / G._protected (o grafo resolve esses nomes no módulo a cada chamada) e devolve
+    a função que desfaz a troca."""
+    if condition not in CONDITIONS:
+        raise SystemExit(f"condição inválida: {condition} (use {', '.join(CONDITIONS)})")
+    orig_v, orig_p = G.validate_decision, G._protected
+    if condition == "V1":
+        def sem_regra_por_tipo(d, **kw):
+            return orig_v(d, **{**kw, "kind": ""})
+        G.validate_decision = sem_regra_por_tipo
+    elif condition == "V0":
+        G.validate_decision = lambda d, **kw: None
+    if sem_portao:
+        G._protected = lambda con, ip: False
+
+    def restore():
+        G.validate_decision, G._protected = orig_v, orig_p
+    return restore
 
 
 # ------------------------------- cliente LLM ---------------------------------------
@@ -205,8 +235,11 @@ def run_case(g, con, cap: Capture, caller: RecordingCaller, case: dict, iid: int
 # ------------------------------- execução completa ---------------------------------
 def run_model(*, label, base_url, model, dataset, reps=3, seed=42, temperature=0.1, max_tokens=160,
               cache_prompt=False, extra=None, timeout=900, allow_remote=False, out_dir=None, only=None,
-              limit=None, warmup=True, overwrite=False, prompt_suffix="", log=sys.stderr) -> list[dict]:
+              limit=None, warmup=True, overwrite=False, prompt_suffix="", condition="V2", sem_portao=False,
+              log=sys.stderr) -> list[dict]:
     assert_safe_setup(base_url, allow_remote)
+    if condition not in CONDITIONS:
+        raise SystemExit(f"condição inválida: {condition} (use {', '.join(CONDITIONS)})")
     orig_prompt = G.SYSTEM_PROMPT
     if prompt_suffix and prompt_suffix.strip() not in orig_prompt:  # já está no graph.py de produção? não duplica
         G.SYSTEM_PROMPT = orig_prompt + prompt_suffix  # só durante esta execução; restaurado no finally
@@ -230,7 +263,9 @@ def run_model(*, label, base_url, model, dataset, reps=3, seed=42, temperature=0
             "label": label, "model": model, "base_url": base_url, "reps": reps, "seed": seed,
             "temperature": temperature, "max_tokens": max_tokens, "cache_prompt": cache_prompt,
             "extra": extra or {}, "prompt_suffix": prompt_suffix, "n_cases": len(cases), "started": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "condition": condition, "sem_portao": sem_portao,
         }, indent=1))
+    restore = apply_condition(condition, sem_portao)
     try:
         for rep in range(reps):
             with tempfile.TemporaryDirectory(prefix="sysop_ab_") as td:
@@ -254,7 +289,7 @@ def run_model(*, label, base_url, model, dataset, reps=3, seed=42, temperature=0
                     print("  (aquecimento descartado)", file=log)
                 for c in cases:
                     r = run_case(g, con, cap, caller, c, ids[c["id"]])
-                    r.update({"label": label, "rep": rep})
+                    r.update({"label": label, "rep": rep, "condition": condition, "sem_portao": sem_portao})
                     results.append(r)
                     if fh:
                         fh.write(json.dumps(r, ensure_ascii=False) + "\n")
@@ -264,6 +299,7 @@ def run_model(*, label, base_url, model, dataset, reps=3, seed=42, temperature=0
                 con.close()
                 ro.close()
     finally:
+        restore()
         G.SYSTEM_PROMPT = orig_prompt
         if fh:
             fh.close()
@@ -291,6 +327,10 @@ def main(argv=None) -> int:
     ap.add_argument("--overwrite", action="store_true", help="permite sobrescrever results/<label>.jsonl")
     ap.add_argument("--allow-remote", action="store_true")
     ap.add_argument("--out-dir", default=str(HERE / "results"))
+    ap.add_argument("--condicao", default="V2", choices=CONDITIONS,
+                    help="V2 validação completa; V1 sem regra por tipo; V0 sem validação (ablação, D05)")
+    ap.add_argument("--sem-portao", action="store_true",
+                    help="deixa incidente de IP protegido chegar ao modelo (a validação ainda o barra em V2/V1)")
     a = ap.parse_args(argv)
     dataset = json.loads(Path(a.dataset).read_text())
     res = run_model(label=a.label, base_url=a.base_url, model=a.model, dataset=dataset, reps=a.reps, seed=a.seed,
@@ -299,7 +339,8 @@ def main(argv=None) -> int:
                     allow_remote=a.allow_remote, out_dir=a.out_dir,
                     only=[x for x in a.cases.split(",") if x] or None, limit=a.limit or None,
                     warmup=not a.no_warmup, overwrite=a.overwrite,
-                    prompt_suffix=(HINT if a.hint else "") + a.prompt_suffix)
+                    prompt_suffix=(HINT if a.hint else "") + a.prompt_suffix,
+                    condition=a.condicao, sem_portao=a.sem_portao)
     esc = sum(r["escaped"] for r in res)
     print(f"\nfeito: {len(res)} execuções -> {a.out_dir}/{a.label}.jsonl | escapes={esc}", file=sys.stderr)
     return 0
