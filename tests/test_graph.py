@@ -240,3 +240,30 @@ def test_acao_de_leitura_encerra_analise(con, falha):
     # o que o run-once selecionaria na próxima rodada: nada
     assert con.execute("SELECT count(*) FROM incidents WHERE status='open'").fetchone()[0] == 0
     assert len(llm.calls) == 1
+
+
+V6_EXP = "2001:0db8:0000:0000:0000:0000:0000:0042"   # forma que o kernel/UFW grava no log
+
+
+@pytest.mark.parametrize("alvo", ["2001:db8::42", V6_EXP])
+def test_bloqueio_ipv6_do_ufw_aceito(con, alvo):
+    """Antes, a evidência (expandida) era comparada com o alvo normalizado por parse_ip (comprimido): todo block_ip
+    em IPv6 caía em 'fora da evidência' e virava notify_only."""
+    for p in range(20, 32):
+        triage.ingest(con, "journald", "h", 1_700_000_000,
+                      f"[UFW BLOCK] IN=wlan0 OUT= MAC=aa SRC={V6_EXP} DST=fe80::1 LEN=80 PROTO=TCP SPT=40000 DPT={p} SYN")
+    iid = triage.open_incidents(con, now=1_700_000_000)[0]
+    con.commit()
+    llm, caller = FakeLLM(lambda m: dec("block_ip", alvo, 0.9)), Caller()
+    graph.build_graph(con, llm, caller=caller).invoke({"incident_id": iid})
+    assert len(llm.calls) == 1 and caller.calls == []
+    a = con.execute("SELECT tool, status FROM agent_actions").fetchone()
+    assert tuple(a) == ("ban_ip_fail2ban", "pending")
+
+
+def test_normalizacao_nao_abre_brecha(con):
+    ok = dict(con=con, evidence_ids=set(), n_events=30, kind="port_scan")
+    d = graph.Decision(action="block_ip", target="2001:db8::43", confidence=0.9, reason="r")
+    assert "fora da evidência" in graph.validate_decision(d, evidence_ips={V6_EXP, "lixo"}, **ok)
+    d = graph.Decision(action="block_ip", target="::1", confidence=0.9, reason="r")
+    assert graph.validate_decision(d, evidence_ips={"0:0:0:0:0:0:0:1"}, **ok) == "target em rede protegida"

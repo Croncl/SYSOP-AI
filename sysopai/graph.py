@@ -85,6 +85,16 @@ def _now() -> int:
 
 
 # ---------------------------- validação determinística ---------------------------
+def _normalized_ips(ips) -> set[str]:
+    out = set()
+    for x in ips:
+        try:
+            out.add(T.parse_ip(x))
+        except (ValueError, AttributeError):
+            continue  # IP malformado na evidência nunca vira alvo válido
+    return out
+
+
 def validate_decision(d: Decision, *, con, evidence_ids: set[int], evidence_ips: set[str], n_events: int, kind: str = "") -> Optional[str]:
     """Retorna motivo da rejeição ou None. É AQUI que 'validade' vira 'segurança': o programa decide."""
     if kind and d.action not in ALLOWED_ACTIONS_BY_KIND.get(kind, DEFAULT_ALLOWED):
@@ -96,7 +106,8 @@ def validate_decision(d: Decision, *, con, evidence_ids: set[int], evidence_ips:
             ip = T.parse_ip(d.target)
         except ValueError:
             return "target não é IP"
-        if ip not in evidence_ips:
+        # Compara na forma normalizada dos dois lados: o UFW grava IPv6 expandido (fe80:0000:...) e parse_ip comprime.
+        if ip not in _normalized_ips(evidence_ips):
             return "target fora da evidência (possível injeção)"
         if T.is_protected(con, ip):
             return "target em rede protegida"
