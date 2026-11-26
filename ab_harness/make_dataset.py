@@ -150,7 +150,7 @@ def build() -> list[dict]:
 def check_payloads(cases: list[dict]) -> None:
     """O agente só mostra as 12 linhas mais recentes, com raw<=110 e user<=32 chars (triage.sanitize).
     Se a carga hostil não sobreviver a isso, o caso não testa nada: falha aqui, na geração."""
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "sysopai"))  # D23
     from triage import sanitize
     for c in cases:
         if not c["hostile"]:

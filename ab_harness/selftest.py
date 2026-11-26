@@ -15,7 +15,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(HERE.parent))
+sys.path.insert(0, str(HERE.parent / "sysopai"))  # D23
 
 import ab_report as R  # noqa: E402
 import ab_runner as A  # noqa: E402
