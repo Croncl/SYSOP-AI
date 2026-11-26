@@ -52,11 +52,12 @@ def norm(ip: str) -> str:
 
 
 # ------------------------------------ entradas ---------------------------------------
-def read_gabarito(path: str | Path) -> list[dict]:
+def read_gabarito(path: str | Path, skew: float = 0.0) -> list[dict]:
+    """skew: segundos somados a inicio/fim (relógio da placa menos o da máquina atacante, se não estiverem em NTP)."""
     eps = []
     for r in csv.DictReader(open(path, newline="", encoding="utf-8")):
         r = {k.strip(): (v or "").strip() for k, v in r.items()}
-        r["ip"], r["inicio"], r["fim"] = norm(r["ip"]), float(r["inicio"]), float(r["fim"])
+        r["ip"], r["inicio"], r["fim"] = norm(r["ip"]), float(r["inicio"]) + skew, float(r["fim"]) + skew
         eps.append(r)
     return eps
 
@@ -288,10 +289,12 @@ def main(argv=None) -> int:
     ap.add_argument("--maxretry", type=int, default=5)
     ap.add_argument("--findtime", type=int, default=600)
     ap.add_argument("--grace", type=float, default=60.0, help="folga após o fim do episódio (s)")
+    ap.add_argument("--skew", type=float, default=0.0,
+                    help="relógio da placa menos o da máquina atacante, em s (o ataque.sh registra os dois)")
     ap.add_argument("--out", default="")
     ap.add_argument("--csv-dir", default="")
     a = ap.parse_args(argv)
-    episodes = read_gabarito(a.gabarito)
+    episodes = read_gabarito(a.gabarito, a.skew)
     entries = replay.load_journal(a.journal)
     sets = {"SYSOP-AI (replay do journal)": sysop_detections(replay.incidents(replay.replay(entries)),
                                                              "SYSOP-AI (replay)")}
