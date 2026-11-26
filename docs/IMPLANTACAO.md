@@ -587,7 +587,7 @@ Antes da regra por tipo, na fase 2: o 3B teve **1 escape real** (obedeceu o text
 3. Detecção de **atividade pós-login** (auditd, fase 2) e resolver `post_login_activity` **por código, sem LLM** (a regra por tipo já garante `notify_only`, mas o LLM só gasta tempo e reprompts).
 4. Reservar o IP da placa no DHCP do roteador. A faixa do Tailscale já está em `protected_networks` e no `ignoreip` do `fail2ban` (13.12).
 5. `aide_change`: regra determinística (opção C da 11.6).
-6. Decidir se a **mesma consolidação de incidentes** do port scan (13.10) vale para `ssh_bruteforce`, que usa a mesma agregação por janela.
+6. ~~Decidir se a mesma consolidação de incidentes do port scan vale para `ssh_bruteforce`~~ feito em 26/11/2026 (13.14).
 7. ~~Containers do LLM no boot~~ resolvido para o `llama-plan-15b` (passo 14.1). Resta investigar o `llama-embed`, parado com `Exited (1)`.
 8. Portabilidade para outros Linux: parametrizar host, unidade SSH, jail e redes protegidas (13.11).
 9. Recalibrar tudo se o prompt ou o modelo mudarem (reexecutar `run_all.sh`).
@@ -729,6 +729,17 @@ O escopo continua sendo **máquinas do próprio administrador**.
 
 **Reproduzir.** `ab_harness/run_spark.sh` (baseline + Spark, portas 8080 e 8081) e `ab_harness/run_qwen3.sh` (só o Qwen3, porta 8081; exige os resultados do baseline e do Spark). Relatórios em `ab_harness/relatorio_spark.md` e `ab_harness/relatorio_qwen3.md`. Os containers de teste (`llama-ab-spark`, `llama-ab-qwen3`) são temporários; a produção (`llama-plan-15b`, porta 8080) não foi alterada.
 
+
+### 13.14 Correções antes das rodadas da Unidade III (26/11/2026)
+Três problemas achados ao ler o código congelado na tag `artigo-u3-base` (c227789), corrigidos com testes antes das rodadas de avaliação (branch `u3-avaliacao`). A tag `artigo-u3-rodadas` marca o código usado nas rodadas.
+
+| # | Problema | Efeito | Correção | Teste |
+|---|---|---|---|---|
+| 1 | `ssh_bruteforce` não era consolidado: o coletor chama `open_incidents` a cada 2 s ou 50 eventos, e cada lote de ≥ 10 falhas ainda sem incidente abria **outro** | Um ataque longo virava dezenas de incidentes `medium`, cada um com uma chamada de LLM (~50 s); a severidade quase nunca escalava | Igual ao port scan (13.10): IP com `ssh_bruteforce` ativo (`open`, `analyzed`, `pending_approval`) e último evento na janela recebe as falhas novas; contagem e severidade recalculadas; auditoria `incident_updated` | `tests/test_ssh_consolidacao.py` |
+| 2 | Ação de leitura (`investigate_journal`, `run_aide_check`) executava, mas o incidente ficava `open` | O `run-once` (seleciona `status='open'`) mandava o mesmo incidente ao LLM a cada execução do timer | Depois da leitura, o incidente passa a `analyzed`, mesmo se a ferramenta falhar | `test_acao_de_leitura_encerra_analise` |
+| 3 | `validate_decision` comparava o alvo normalizado (`parse_ip`, IPv6 comprimido) com a evidência crua (o UFW grava IPv6 expandido) | Todo `block_ip` em IPv6 era rejeitado como "fora da evidência" e virava `notify_only` | A evidência é normalizada com a mesma função; IP malformado nunca vira alvo | `test_bloqueio_ipv6_do_ufw_aceito`, `test_normalizacao_nao_abre_brecha` |
+
+Resolve a pendência 6 da 13.8. Continua valendo: a detecção de força bruta SSH só reconhece IPv4 (as regex de `triage.py`); o port scan aceita IPv6. Um incidente `analyzed` que continua crescendo não volta ao LLM (mesma regra do port scan): a reavaliação de um ataque que escala fica como trabalho futuro.
 
 ---
 
