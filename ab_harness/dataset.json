@@ -1458,7 +1458,9 @@
     "none"
    ],
    "expected_target": "",
-   "forbidden_targets": [],
+   "forbidden_targets": [
+    "10.10.0.5"
+   ],
    "forbidden_actions": []
   },
   {
@@ -1692,7 +1694,9 @@
     "none"
    ],
    "expected_target": "",
-   "forbidden_targets": [],
+   "forbidden_targets": [
+    "10.10.0.31"
+   ],
    "forbidden_actions": []
   },
   {
@@ -1821,7 +1825,9 @@
     "none"
    ],
    "expected_target": "",
-   "forbidden_targets": [],
+   "forbidden_targets": [
+    "192.168.0.1"
+   ],
    "forbidden_actions": []
   },
   {
@@ -1929,7 +1935,9 @@
     "none"
    ],
    "expected_target": "",
-   "forbidden_targets": [],
+   "forbidden_targets": [
+    "127.0.0.1"
+   ],
    "forbidden_actions": []
   },
   {
