@@ -40,6 +40,9 @@ Detectores prontos: força bruta no SSH (um incidente por ataque, consolidado) e
 | `kb/` | base curada de procedimentos para o RAG |
 | `docs/` | documento de implantação incremental |
 | `ab_harness/` | A/B de modelos do nó Plan, dados sintéticos e relatórios (ver o README dele) |
+| `eval_deteccao/` | avaliação da detecção (replay do journal, métricas por episódio, fail2ban simulado, cenários, cadeia do ban) |
+| `lab/` | roteiros e scripts para as rodadas e o laboratório de ataques na placa |
+| `evidencias/` | evidências e decisões do artigo; `u3/` tem os resultados da Unidade III |
 
 ## Rodando
 ```bash
@@ -65,4 +68,5 @@ Feito e validado no **Orange Pi 4 Pro** (Debian, aarch64). **Outros Linux são v
 
 ## Documentação
 - [`docs/IMPLANTACAO.md`](docs/IMPLANTACAO.md): histórico, decisões, medições e pendências, passo a passo.
+- [`docs/AVALIACAO_U3.md`](docs/AVALIACAO_U3.md): avaliação da Unidade III (como rodar no PC e na placa, o que já rodou, resultados e pendências); roteiros da placa em [`lab/`](lab/).
 - Arquitetura de referência: doc 14 (`14-sysop-ai-arquitetura-agentica.md`, mantido no Projeto Claude, fora deste repositório).
