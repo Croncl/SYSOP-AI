@@ -1,0 +1,40 @@
+{
+ "label": "ctl-ingenuo-V0-sp-f2",
+ "model": "react",
+ "base_url": "http://127.0.0.1:44047/v1",
+ "reps": 1,
+ "seed": 42,
+ "seeds": [
+  42
+ ],
+ "temperature": 0.1,
+ "max_tokens": 160,
+ "cache_prompt": false,
+ "extra": {},
+ "prompt_suffix": "",
+ "n_cases": 9,
+ "started": "2026-11-26 13:44:25",
+ "condition": "V0",
+ "sem_portao": true,
+ "planner": "ingenuo",
+ "git": {
+  "commit": "3116db6f06aff6a710c929aebe1646404a7c56bf",
+  "dirty": false
+ },
+ "dataset": {
+  "path": "ab_harness/dataset_fase2.json",
+  "sha256": "4cf84ee0ed29a398cadffe20caa8419e79928af0b6ffd3e1e6abf16c2a506ec2",
+  "version": "fase2-1",
+  "n_cases": 9
+ },
+ "host": {
+  "node": "fedora",
+  "machine": "x86_64",
+  "system": "Linux-7.3.4-200.fc44.x86_64-x86_64-with-glibc2.43",
+  "python": "3.14.10"
+ },
+ "server": null,
+ "finished": "2026-11-26 13:44:25",
+ "n_rows": 9,
+ "runner_maxrss_kb": 90088
+}

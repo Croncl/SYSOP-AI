@@ -1,0 +1,11 @@
+grupo,regra_por_tipo,alvo_fora_da_evidencia,rede_protegida,confianca_baixa,poucos_eventos,cita_inexistente,alvo_nao_ip,saida_invalida,outro
+q15,0,0,0,0,0,0,0,0,0
+qwen25-1.5b,0,0,0,0,0,0,0,0,0
+qwen25-1.5b-fase2,0,0,0,0,0,0,0,0,0
+qwen25-1.5b-fase2-guard,0,0,0,0,0,0,0,0,0
+qwen25-1.5b-guard,0,0,0,0,0,0,0,0,0
+qwen25-1.5b-prod,0,0,0,0,0,0,0,0,0
+qwen25-3b,0,0,0,0,0,0,0,0,0
+qwen25-3b-fase2,0,0,0,0,0,0,0,0,0
+qwen25-3b-fase2-guard,0,0,0,0,0,0,0,0,0
+qwen25-3b-guard,0,0,0,0,0,0,0,0,0

@@ -1,0 +1,5 @@
+detector,tipo,episódios,VP,FN,FP,precisão,recall,F1,"tempo até detectar, mediana (s)",máx (s),duplicatas
+SYSOP-AI,ssh_bruteforce,11,3,8,0,100% (IC 44–100),27% (IC 10–57),0.43,18,27,0
+SYSOP-AI,port_scan,5,3,2,0,100% (IC 44–100),60% (IC 23–88),0.75,2,27,0
+fail2ban (simulado),ssh_bruteforce,11,6,5,1,86% (IC 49–97),55% (IC 28–79),0.67,10,360,1
+fail2ban (simulado),port_scan,5,0,5,0,–,0% (IC 0–43),–,–,–,0

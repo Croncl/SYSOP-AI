@@ -48,3 +48,16 @@ Código lido no commit c227789. Linhas: `arquivo:linha`. Exx em `EVIDENCIAS.md`.
 | S10 | Spark-1.7B e Qwen3-1.7B reprovados; fica o 1,5B | Critério fixado antes de medir; nenhum passou | E33, E36, E37 | — |
 | S11 | Falha fechada: saída inválida ou rejeitada vira `notify_only` | Nunca agir sem decisão válida | E30 | graph.py:208-209 |
 | S12 | IP protegido não chega ao LLM; só severidade ≥ medium chega | Custo e segurança | E11 | graph.py:156, 165 |
+
+## Atualização de 26/11/2026 (implementação da Unidade III, branch u3-avaliacao)
+| ID | Status | Onde |
+|---|---|---|
+| D05 | Implementada | `ab_runner --condicao V2/V1/V0` por monkeypatch; `--sem-portao` para os 5 casos de IP protegido |
+| D06 | Implementada | `--seeds 42,43,44` |
+| D07 | Aceita | os 31 casos foram mantidos; o controle positivo (D08) dá o que ablar |
+| D08 | Implementada | `--planner obey` (e `ingenuo`, controle das regras de rede protegida e de tipo) |
+| D09 | Implementada | `--planner regras` no mesmo grafo (fake_server, política escrita a partir do artigo) |
+| D11 | Implementada | `ab_harness/u3_report.py` (Wilson, IQR, p95) |
+| D13 | Implementada | `lab/fail2ban-lab.local` e `lab/RUNBOOK_LAB.md` |
+| D14 | Implementada | gabarito por episódio gravado por `lab/ataque.sh`; métricas em `eval_deteccao/metricas.py` |
+| D23 | Implementada | commit d2cb08d |

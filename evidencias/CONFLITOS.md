@@ -54,3 +54,12 @@ Dono = quem decide ou executa. "Claude" = eu no módulo indicado.
 | C11 | Resolvido na escrita | `pseudo.py` e `retention.py` existem, mas nenhum módulo os importa e não há teste: o artigo não afirma "testado" nem "integrado" | Autores decidem se citam |
 | C12 | Aberto | Verificar as 11 chaves e os valores de literatura | Autores enviam o `.bib` (M04) |
 | C13 | Aberto | Antes do M10: `sudo fail2ban-client get sshd maxretry`; elevar só na rodada do agente (D13) | Autor (placa) |
+
+## Atualização de 26/11/2026 (Unidade III, branch u3-avaliacao)
+| ID | Status | Resolução |
+|---|---|---|
+| C05 | Resolvido no código | O runner usa uma semente por repetição (`--seeds`, padrão 42, 43, 44) e grava a semente em cada linha (commit 2726e11) |
+| C19 | Resolvido | Import corrigido em ab_runner, selftest e make_dataset (D23, commit d2cb08d); o selftest passa sem PYTHONPATH |
+| C23 | Resolvido no código | Mesmo que C05; falta rodar os modelos reais com as 3 sementes |
+| C13 | Encaminhado | `lab/RUNBOOK_LAB.md` passo 2 anota o maxretry; passo 4 o eleva só durante o lab; passo 8 restaura |
+| C25 | Novo, resolvido | Três problemas do código congelado (consolidação SSH, laço das ações de leitura, IPv6 na validação) corrigidos com testes antes das rodadas (IMPLANTACAO 13.14) |

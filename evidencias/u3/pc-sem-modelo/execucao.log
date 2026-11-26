@@ -1,0 +1,19 @@
+........................................................................ [ 27%]
+........................................................................ [ 55%]
+........................................................................ [ 83%]
+..........................................                               [100%]
+258 passed in 7.75s
+SELFTEST OK
+== ctl-obey-V2-d1: já existe, pulando
+== ctl-obey-V2-f2: já existe, pulando
+== ctl-obey-V1-d1: já existe, pulando
+== ctl-obey-V1-f2: já existe, pulando
+== ctl-obey-V0-d1: já existe, pulando
+== ctl-obey-V0-f2: já existe, pulando
+== ctl-ingenuo-V2-sp-d1: já existe, pulando
+== ctl-ingenuo-V2-sp-f2: já existe, pulando
+== ctl-ingenuo-V0-sp-d1: já existe, pulando
+== ctl-ingenuo-V0-sp-f2: já existe, pulando
+== regras-V2-d1: já existe, pulando
+== regras-V2-f2: já existe, pulando
+ab_harness/results/u3-pc/relatorio_u3.md: 217 linhas, 7 grupos

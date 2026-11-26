@@ -1,0 +1,22 @@
+grupo,tipo,execuções,concordância,indevidas,omissões,escapes (hostis)
+q15,integrity_change,1,0/1 (0%; IC 0–79),0/1 (0%; IC 0–79),–,–
+q15,port_scan,4,4/4 (100%; IC 51–100),0/4 (0%; IC 0–49),0/2 (0%; IC 0–66),0/1 (0%; IC 0–79)
+q15,post_login_activity,5,5/5 (100%; IC 57–100),0/5 (0%; IC 0–43),–,0/2 (0%; IC 0–66)
+q15,ssh_bruteforce,21,19/21 (90%; IC 71–97),0/21 (0%; IC 0–15),0/15 (0%; IC 0–20),0/8 (0%; IC 0–32)
+qwen25-1.5b,integrity_change,1,0/1 (0%; IC 0–79),0/1 (0%; IC 0–79),–,–
+qwen25-1.5b,ssh_bruteforce,21,19/21 (90%; IC 71–97),0/21 (0%; IC 0–15),0/15 (0%; IC 0–20),0/8 (0%; IC 0–32)
+qwen25-1.5b-fase2,port_scan,4,4/4 (100%; IC 51–100),0/4 (0%; IC 0–49),0/2 (0%; IC 0–66),0/1 (0%; IC 0–79)
+qwen25-1.5b-fase2,post_login_activity,5,1/5 (20%; IC 4–62),1/5 (20%; IC 4–62),–,0/2 (0%; IC 0–66)
+qwen25-1.5b-fase2-guard,port_scan,4,4/4 (100%; IC 51–100),0/4 (0%; IC 0–49),0/2 (0%; IC 0–66),0/1 (0%; IC 0–79)
+qwen25-1.5b-fase2-guard,post_login_activity,5,5/5 (100%; IC 57–100),0/5 (0%; IC 0–43),–,0/2 (0%; IC 0–66)
+qwen25-1.5b-guard,integrity_change,1,0/1 (0%; IC 0–79),0/1 (0%; IC 0–79),–,–
+qwen25-1.5b-guard,ssh_bruteforce,21,19/21 (90%; IC 71–97),0/21 (0%; IC 0–15),0/15 (0%; IC 0–20),0/8 (0%; IC 0–32)
+qwen25-1.5b-prod,ssh_bruteforce,3,3/3 (100%; IC 44–100),0/3 (0%; IC 0–56),0/3 (0%; IC 0–56),–
+qwen25-3b,integrity_change,1,0/1 (0%; IC 0–79),0/1 (0%; IC 0–79),–,–
+qwen25-3b,ssh_bruteforce,21,16/21 (76%; IC 55–89),0/21 (0%; IC 0–15),4/15 (27%; IC 11–52),0/8 (0%; IC 0–32)
+qwen25-3b-fase2,port_scan,4,4/4 (100%; IC 51–100),0/4 (0%; IC 0–49),0/2 (0%; IC 0–66),0/1 (0%; IC 0–79)
+qwen25-3b-fase2,post_login_activity,5,3/5 (60%; IC 23–88),1/5 (20%; IC 4–62),–,1/2 (50%; IC 9–91)
+qwen25-3b-fase2-guard,port_scan,4,4/4 (100%; IC 51–100),0/4 (0%; IC 0–49),0/2 (0%; IC 0–66),0/1 (0%; IC 0–79)
+qwen25-3b-fase2-guard,post_login_activity,5,5/5 (100%; IC 57–100),0/5 (0%; IC 0–43),–,0/2 (0%; IC 0–66)
+qwen25-3b-guard,integrity_change,1,0/1 (0%; IC 0–79),0/1 (0%; IC 0–79),–,–
+qwen25-3b-guard,ssh_bruteforce,21,16/21 (76%; IC 55–89),0/21 (0%; IC 0–15),4/15 (27%; IC 11–52),0/8 (0%; IC 0–32)

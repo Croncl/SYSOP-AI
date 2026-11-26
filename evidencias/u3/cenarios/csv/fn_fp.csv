@@ -1,0 +1,22 @@
+detector,tipo,episódio/IP,resultado,motivo provável,esperado no gabarito
+SYSOP-AI,ssh_bruteforce,S3-abaixo-do-limiar,FN,abaixo do limiar: no máximo 9 falhas em 10 min (limiar 10),nao_detectar
+SYSOP-AI,ssh_bruteforce,S4-lenta-90s,FN,abaixo do limiar: no máximo 7 falhas em 10 min (limiar 10),nao_detectar
+SYSOP-AI,ssh_bruteforce,S5-lenta-150s,FN,abaixo do limiar: no máximo 4 falhas em 10 min (limiar 10),nao_detectar
+SYSOP-AI,ssh_bruteforce,S6-distribuida-1,FN,abaixo do limiar: no máximo 4 falhas em 10 min (limiar 10),nao_detectar
+SYSOP-AI,ssh_bruteforce,S6-distribuida-2,FN,abaixo do limiar: no máximo 4 falhas em 10 min (limiar 10),nao_detectar
+SYSOP-AI,ssh_bruteforce,S6-distribuida-3,FN,abaixo do limiar: no máximo 4 falhas em 10 min (limiar 10),nao_detectar
+SYSOP-AI,ssh_bruteforce,S6-distribuida-4,FN,abaixo do limiar: no máximo 4 falhas em 10 min (limiar 10),nao_detectar
+SYSOP-AI,ssh_bruteforce,S7-ipv6,FN,"IPv6 no SSH: 30 falhas no log, mas as regras da triagem só reconhecem IPv4",nao_detectar
+SYSOP-AI,port_scan,P3-9-portas,FN,"abaixo do limiar: no máximo 9 portas distintas registradas em 10 min (limiar 10; o log do UFW tem limite de 3/min, rajada 10)",nao_detectar
+SYSOP-AI,port_scan,P4-lenta,FN,"abaixo do limiar: no máximo 5 portas distintas registradas em 10 min (limiar 10; o log do UFW tem limite de 3/min, rajada 10)",nao_detectar
+fail2ban (simulado),ssh_bruteforce,S5-lenta-150s,FN,no máximo 4 falhas contáveis em 10 min (maxretry do jail),nao_detectar
+fail2ban (simulado),ssh_bruteforce,S6-distribuida-1,FN,no máximo 4 falhas contáveis em 10 min (maxretry do jail),nao_detectar
+fail2ban (simulado),ssh_bruteforce,S6-distribuida-2,FN,no máximo 4 falhas contáveis em 10 min (maxretry do jail),nao_detectar
+fail2ban (simulado),ssh_bruteforce,S6-distribuida-3,FN,no máximo 4 falhas contáveis em 10 min (maxretry do jail),nao_detectar
+fail2ban (simulado),ssh_bruteforce,S6-distribuida-4,FN,no máximo 4 falhas contáveis em 10 min (maxretry do jail),nao_detectar
+fail2ban (simulado),ssh_bruteforce,B2-admin-erra-6x,FP,episódio benigno B2-admin-erra-6x gerou 5 eventos contáveis na janela,
+fail2ban (simulado),port_scan,P1-rapida-100,FN,a jail sshd não lê o UFW: o fail2ban da placa não tem jail de varredura,detectar
+fail2ban (simulado),port_scan,P2-rapida-1000,FN,a jail sshd não lê o UFW: o fail2ban da placa não tem jail de varredura,detectar
+fail2ban (simulado),port_scan,P3-9-portas,FN,a jail sshd não lê o UFW: o fail2ban da placa não tem jail de varredura,nao_detectar
+fail2ban (simulado),port_scan,P4-lenta,FN,a jail sshd não lê o UFW: o fail2ban da placa não tem jail de varredura,nao_detectar
+fail2ban (simulado),port_scan,P7-ipv6-15,FN,a jail sshd não lê o UFW: o fail2ban da placa não tem jail de varredura,detectar

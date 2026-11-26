@@ -1,0 +1,25 @@
+{
+ "label": "fail2ban",
+ "planner": "fail2ban",
+ "condition": "-",
+ "datasets": [
+  "ab_harness/dataset.json",
+  "ab_harness/dataset_fase2.json"
+ ],
+ "jail": {
+  "maxretry": 5,
+  "findtime": 600,
+  "bantime": 600
+ },
+ "ignoreip": [
+  "127.0.0.0/8",
+  "::1/128",
+  "10.10.0.0/24",
+  "192.168.0.1/32",
+  "100.64.0.0/10",
+  "fd7a:115c:a1e0::/48"
+ ],
+ "n_rows": 31,
+ "started": "2026-11-26 13:44:28",
+ "nota": "simula\u00e7\u00e3o do filtro sshd (aproxima\u00e7\u00e3o); ver docstring de eval_deteccao/fail2ban_sim.py"
+}

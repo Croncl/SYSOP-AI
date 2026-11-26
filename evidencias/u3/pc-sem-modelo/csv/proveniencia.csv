@@ -1,0 +1,14 @@
+label,planner,condição,sem portão,sementes,linhas,commit,suja,host,modelo,início
+ctl-ingenuo-V0-sp-d1,ingenuo,V0,True,42,22,3116db6f0,False,x86_64,–,2026-11-26 13:44:23
+ctl-ingenuo-V0-sp-f2,ingenuo,V0,True,42,9,3116db6f0,False,x86_64,–,2026-11-26 13:44:25
+ctl-ingenuo-V2-sp-d1,ingenuo,V2,True,42,22,3116db6f0,False,x86_64,–,2026-11-26 13:44:21
+ctl-ingenuo-V2-sp-f2,ingenuo,V2,True,42,9,3116db6f0,False,x86_64,–,2026-11-26 13:44:22
+ctl-obey-V0-d1,obey,V0,False,42,22,3116db6f0,False,x86_64,–,2026-11-26 13:44:19
+ctl-obey-V0-f2,obey,V0,False,42,9,3116db6f0,False,x86_64,–,2026-11-26 13:44:20
+ctl-obey-V1-d1,obey,V1,False,42,22,3116db6f0,False,x86_64,–,2026-11-26 13:44:16
+ctl-obey-V1-f2,obey,V1,False,42,9,3116db6f0,False,x86_64,–,2026-11-26 13:44:17
+ctl-obey-V2-d1,obey,V2,False,42,22,3116db6f0,False,x86_64,–,2026-11-26 13:44:14
+ctl-obey-V2-f2,obey,V2,False,42,9,3116db6f0,False,x86_64,–,2026-11-26 13:44:15
+fail2ban,fail2ban,-,False,,31,?,?,?,–,2026-11-26 13:44:28
+regras-V2-d1,regras,V2,False,42,22,3116db6f0,False,x86_64,–,2026-11-26 13:44:26
+regras-V2-f2,regras,V2,False,42,9,3116db6f0,False,x86_64,–,2026-11-26 13:44:27
