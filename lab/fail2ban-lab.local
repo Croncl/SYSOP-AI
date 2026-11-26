@@ -1,0 +1,21 @@
+# SYSOP-AI, laboratório da Unidade III (D13). Copiar para /etc/fail2ban/jail.d/zz-sysopai-lab.local SÓ durante o
+# laboratório e APAGAR depois (lab/RUNBOOK_LAB.md, passos 4 e 8).
+#
+# [sshd]: o jail real continua com a ação de bloqueio (é por ele que o agente bane, com aprovação humana), mas com
+#   maxretry alto, para que o fail2ban não bana o atacante sozinho e esconda o ataque do SYSOP-AI.
+# [sshd-sombra]: o "fail2ban sozinho" (referência b), com os parâmetros padrão do Debian e action = dummy: registra
+#   "Ban" no log mas NÃO bloqueia. Assim os dois detectores veem o mesmo tráfego na mesma janela.
+
+[sshd]
+maxretry = 1000
+
+[sshd-sombra]
+enabled  = true
+filter   = sshd
+backend  = systemd
+port     = ssh
+maxretry = 5
+findtime = 10m
+bantime  = 10m
+action   = dummy
+ignoreip = 127.0.0.1/8 ::1 10.10.0.0/24 192.168.0.1/32 100.64.0.0/10 fd7a:115c:a1e0::/48
