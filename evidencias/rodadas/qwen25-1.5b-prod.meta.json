@@ -1,0 +1,14 @@
+{
+ "label": "qwen25-1.5b-prod",
+ "model": "react",
+ "base_url": "http://127.0.0.1:8080/v1",
+ "reps": 1,
+ "seed": 42,
+ "temperature": 0.1,
+ "max_tokens": 160,
+ "cache_prompt": false,
+ "extra": {},
+ "prompt_suffix": "",
+ "n_cases": 3,
+ "started": "2026-11-03 05:54:08"
+}

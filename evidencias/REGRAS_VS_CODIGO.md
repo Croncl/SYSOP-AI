@@ -52,3 +52,28 @@ Commit c227789. A Tabela 1 do rascunho **não foi comparada**: o `main_rascunho.
 | Container do LLM no boot | Validado na placa | E61 |
 | Resumo em lote | Só teste unitário | test_graph |
 | Tool Forge, MCP, BERT, dashboard | Não implementado (BERT tem só o gancho `bert=None`; `tool_registry` é só tabela) | D17 |
+
+## 4. Tabela 1 e texto do rascunho (main.tex) contra o código
+Tabela 1 (`tab:validacao`): as 6 regras batem com o código. As quatro últimas valem só para `block_ip` (D1), como o texto já diz. O que muda:
+
+| # | Trecho do rascunho | Problema | Correção proposta |
+|---|---|---|---|
+| T1 | "Assim, um erro do modelo nunca resulta em bloqueio" (§Lacuna) | Exagero: um bloqueio com alvo na evidência e confiança ≥ 0,80 passa e vira proposta pendente, mesmo errado; quem barra é o humano | "nunca resulta em bloqueio sem validação e aprovação humana" |
+| T2 | "Incidentes de baixa severidade ou de redes protegidas são encerrados sem consultar o modelo" (passo 3) | Só os de rede protegida são encerrados (graph.py:156-160); os de baixa severidade só pulam o LLM (:165). Além disso, os dois detectores nunca geram severidade baixa (mínimo `medium`) | "dispensados do modelo"; citar só a rede protegida |
+| T3 | "registro de auditoria que não pode ser alterado nem apagado" | Os gatilhos do banco (schema.sql:78-81) barram UPDATE e DELETE, mas o dono do arquivo (sysop) poderia removê-los [?, não testado] | "protegido por gatilhos do banco contra alteração e remoção" |
+| T4 | "só poderá consultar o estado do firewall e pedir ao fail2ban o bloqueio" | Confere com o sudoers (E56). Mas `run_aide_check` usa `sudo aide` (tools.py:82), que o sudoers não permite | Não citar o AIDE (D17) |
+| T5 | "O modelo previsto... o tamanho será definido" | Já decidido: 1,5B (S02, E32) | Reescrever no M13 |
+| T6 | "regras previstas", "será feita", "protótipo em desenvolvimento" | Já implementado (C03) | Presente |
+| T7 | Resultados: o 3B obedeceu ordem em comando `sudo`; o 1,5B bloqueou o admin sem injeção | Confere: `post_admin_trap` e `post_routine_admin` (E35, C10) | Manter; citar os casos |
+| T8 | Tabela 2: 100%, 0, 123 s, 51 s; "2,4 vezes" | Confere (E12, E14, E16, E23, E24); 2,4× só no conjunto 1 (C21) | Dizer "no primeiro conjunto" |
+
+## 5. Números de literatura do rascunho (para o M04)
+| Número | Onde está | Chave a verificar |
+|---|---|---|
+| 4,99 milhões de dólares; 12% | Introdução | ibm2026 |
+| 21 estudos; só 1 com prevenção; só 2 medem CPU e memória; só 2 em ambiente real; só 6 medem tempo | Introdução e Relacionados | satilmis2024 |
+| 75×, 37× | Relacionados | gungor2025 |
+| 16.231 alertas; 96% de BERTScore | Relacionados | balasubramanian2024 |
+| 5 milhões de requisições | Relacionados | kanaparthi2024 |
+| >50% para <2% | Relacionados | hines2024 |
+O `.bib` tem as 11 chaves e o `main.tex` usa `\bibliography{sbc-template}`: salvar como `artigo/sbc-template.bib`.

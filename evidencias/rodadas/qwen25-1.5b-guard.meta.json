@@ -1,0 +1,14 @@
+{
+ "label": "qwen25-1.5b-guard",
+ "model": "react",
+ "base_url": "http://127.0.0.1:8080/v1",
+ "reps": 1,
+ "seed": 42,
+ "temperature": 0.1,
+ "max_tokens": 160,
+ "cache_prompt": false,
+ "extra": {},
+ "prompt_suffix": " confidence \u00e9 um decimal entre 0 e 1 (ex.: 0.85), nunca porcentagem. Para block_ip, target \u00e9 o IP do incidente.",
+ "n_cases": 22,
+ "started": "2026-11-02 21:29:27"
+}

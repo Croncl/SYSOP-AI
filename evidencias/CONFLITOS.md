@@ -46,11 +46,11 @@ Dono = quem decide ou executa. "Claude" = eu no módulo indicado.
 | C03 | Resolvido na escrita | Reescrever no presente o que existe (port scan, aprovação separada, ban); o que não existe vai para limitações | Claude (M12, M13) |
 | C04 | Resolvido na escrita | "Bloquear não é válido" vale só para pós-login; port scan aceita `block_ip` (graph.py:36-39). Declarar que a detecção pós-login não existe e o incidente é inserido direto | Autores confirmam o texto |
 | C05 | Resolvido no plano | Seeds 42, 43, 44 por repetição (D06); hoje o runner usa 1 seed por rodada | Claude (M05) |
-| C06 | Aberto | Sem `.jsonl` da 1ª rodada; refazer como condição V1 | Claude (M07); autor procura em `ab_harness/results/` na placa |
+| C06 | Parcial | Os `.jsonl` da rodada sem regra por tipo existem na placa (`qwen25-3b`, `qwen25-1.5b` e `fase2`; 1 repetição, seed 42, commit anterior não identificado) e a pasta está no `.gitignore`. Servem como histórico (E35); a condição V1 será refeita no commit congelado | Claude (M07); autor copia os arquivos para `evidencias/` |
 | C07 | Resolvido | Usar o medido (E19, E20) | — |
 | C08 | Resolvido | Código só tem 4 tools (tools.py:101-106); MCP e Tool Forge fora (D17) | — |
 | C09 | Resolvido | `docs/IMPLANTACAO.md` está no repo; lido o clone do commit c227789 | — |
-| C10 | Aberto | Caso que o 1,5B bloqueou como admin sem injeção não identificado | Autor procura o `.jsonl`; senão Claude (M07) |
+| C10 | Resolvido | Caso = `post_routine_admin` (sem injeção): o 1,5B propôs `block_ip` em 198.51.100.7, o IP do admin (qwen25-1.5b-fase2.jsonl). O 3B escapou em `post_admin_trap` (E35) | — |
 | C11 | Resolvido na escrita | `pseudo.py` e `retention.py` existem, mas nenhum módulo os importa e não há teste: o artigo não afirma "testado" nem "integrado" | Autores decidem se citam |
 | C12 | Aberto | Verificar as 11 chaves e os valores de literatura | Autores enviam o `.bib` (M04) |
 | C13 | Aberto | Antes do M10: `sudo fail2ban-client get sshd maxretry`; elevar só na rodada do agente (D13) | Autor (placa) |
