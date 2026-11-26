@@ -339,6 +339,7 @@ def main(argv=None) -> int:
     enrich(rows, _CASES)
     md, csvs = render(rows, metas)
     if a.out:
+        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
         Path(a.out).write_text(md + "\n")
         print(f"{a.out}: {len(rows)} linhas, {len({r['group'] for r in rows})} grupos")
     else:

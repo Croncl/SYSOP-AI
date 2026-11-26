@@ -308,6 +308,7 @@ def main(argv=None) -> int:
     res, evs = evaluate(episodes, entries, sets, a.grace)
     md, csvs = render(episodes, res, evs, sets, a.grace)
     if a.out:
+        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
         Path(a.out).write_text(md + "\n")
         print(f"{a.out}: {len(episodes)} episódios, detectores: {', '.join(sets)}")
     else:
