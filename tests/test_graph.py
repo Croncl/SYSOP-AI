@@ -218,3 +218,25 @@ def test_evidencia_e_deterministica_com_timestamps_iguais(con):
     graph.build_graph(con, llm, caller=Caller()).invoke({"incident_id": iid})
     prompt = llm.calls[0][1]["content"]
     assert "[20] " in prompt and "[9] " in prompt and "[8] " not in prompt   # os 12 mais recentes por id
+
+
+@pytest.mark.parametrize("falha", [False, True])
+def test_acao_de_leitura_encerra_analise(con, falha):
+    """investigate_journal executa sem humano e o incidente sai de 'open' (antes voltava ao LLM a cada run-once),
+    inclusive quando a ferramenta de leitura falha."""
+    iid = incidente(con)
+    llm = FakeLLM(lambda m: dec("investigate_journal"))
+
+    class CallerQueFalha(Caller):
+        def __call__(self, name, args, approved=False, action_id=None):
+            super().__call__(name, args, approved, action_id)
+            raise PermissionError("sudo negado")
+
+    caller = CallerQueFalha() if falha else Caller()
+    graph.build_graph(con, llm, caller=caller).invoke({"incident_id": iid})
+    assert [c[0] for c in caller.calls] == ["query_journald"]
+    assert _row(con, "SELECT status FROM incidents") == ("analyzed",)
+    assert _row(con, "SELECT status FROM agent_actions") == ("failed" if falha else "executed",)
+    # o que o run-once selecionaria na próxima rodada: nada
+    assert con.execute("SELECT count(*) FROM incidents WHERE status='open'").fetchone()[0] == 0
+    assert len(llm.calls) == 1

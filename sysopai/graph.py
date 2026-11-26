@@ -258,7 +258,12 @@ def build_graph(con, llm: LLM, retriever: Retriever | None = None, ro_con=None, 
             return {"action_id": aid, "notes": s.get("notes", []) + ["aguardando aprovação humana"]}
         con.execute("UPDATE agent_actions SET status='approved', approved_by=? WHERE id=?",
                     ("policy:" + tool if spec.risk == "write" else "policy:read", aid))
-        return _run_action(aid, tool, args, inc, approved=True)
+        out = _run_action(aid, tool, args, inc, approved=True)
+        if spec.risk != "write":
+            # Leitura (investigar journal, AIDE) encerra a análise, mesmo se a ferramenta falhou. Sem isto o incidente
+            # ficava 'open' e voltava ao LLM a cada run-once (~1 chamada por incidente a cada 5 min).
+            con.execute("UPDATE incidents SET status='analyzed' WHERE id=? AND status='open'", (inc["id"],))
+        return out
 
     def _run_action(aid: int, tool: str, args: dict, inc: dict, approved: bool) -> State:
         try:
