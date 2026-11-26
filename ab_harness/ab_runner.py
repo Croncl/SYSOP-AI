@@ -302,7 +302,7 @@ def run_case(g, con, cap: Capture, caller: RecordingCaller, case: dict, iid: int
 def run_model(*, label, base_url, model, dataset, reps=3, seed=42, temperature=0.1, max_tokens=160,
               cache_prompt=False, extra=None, timeout=900, allow_remote=False, out_dir=None, only=None,
               limit=None, warmup=True, overwrite=False, prompt_suffix="", condition="V2", sem_portao=False,
-              seeds=None, dataset_path=None, log=sys.stderr) -> list[dict]:
+              seeds=None, dataset_path=None, planner="llm", log=sys.stderr) -> list[dict]:
     """Uma semente por repetição: seeds[i] na repetição i. Sem `seeds`, usa seed, seed+1, ... (D06: 42, 43, 44).
     Antes todas as repetições usavam a mesma semente e, com temperatura 0,1, repetiam a mesma saída (C05)."""
     seeds = list(seeds) if seeds else [seed + i for i in range(reps)]
@@ -333,7 +333,7 @@ def run_model(*, label, base_url, model, dataset, reps=3, seed=42, temperature=0
         "label": label, "model": model, "base_url": base_url, "reps": reps, "seed": seeds[0], "seeds": seeds,
         "temperature": temperature, "max_tokens": max_tokens, "cache_prompt": cache_prompt,
         "extra": extra or {}, "prompt_suffix": prompt_suffix, "n_cases": len(cases), "started": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "condition": condition, "sem_portao": sem_portao, "git": git_info(), "dataset": dataset_info(dataset, dataset_path),
+        "condition": condition, "sem_portao": sem_portao, "planner": planner, "git": git_info(), "dataset": dataset_info(dataset, dataset_path),
         "host": host_info(), "server": server_props(base_url),
     }
     meta_path = Path(out_dir) / f"{label}.meta.json" if out_dir else None
@@ -365,7 +365,7 @@ def run_model(*, label, base_url, model, dataset, reps=3, seed=42, temperature=0
                 for c in cases:
                     r = run_case(g, con, cap, caller, c, ids[c["id"]])
                     r.update({"label": label, "rep": rep, "seed": seeds[rep], "condition": condition,
-                              "sem_portao": sem_portao})
+                              "sem_portao": sem_portao, "planner": planner})
                     results.append(r)
                     if fh:
                         fh.write(json.dumps(r, ensure_ascii=False) + "\n")
@@ -410,11 +410,31 @@ def main(argv=None) -> int:
     ap.add_argument("--out-dir", default=str(HERE / "results"))
     ap.add_argument("--condicao", default="V2", choices=CONDITIONS,
                     help="V2 validação completa; V1 sem regra por tipo; V0 sem validação (ablação, D05)")
+    ap.add_argument("--planner", default="llm", choices=("llm", "regras", "obey", "ingenuo"),
+                    help="llm: o servidor de --base-url; os demais sobem o fake_server em loopback no lugar do modelo "
+                         "(regras = referência c; obey e ingenuo = controles positivos)")
     ap.add_argument("--sem-portao", action="store_true",
                     help="deixa incidente de IP protegido chegar ao modelo (a validação ainda o barra em V2/V1)")
     a = ap.parse_args(argv)
     dataset = json.loads(Path(a.dataset).read_text())
-    res = run_model(label=a.label, base_url=a.base_url, model=a.model, dataset=dataset, reps=a.reps, seed=a.seed,
+    srv = None
+    if a.planner != "llm":
+        sys.path.insert(0, str(HERE))
+        import fake_server
+        srv, _ = fake_server.start(policy=a.planner)
+        a.base_url, a.allow_remote = f"http://127.0.0.1:{srv.server_address[1]}/v1", False
+    try:
+        res = _main_run(a, dataset)
+    finally:
+        if srv:
+            srv.shutdown()
+    esc = sum(r["escaped"] for r in res)
+    print(f"\nfeito: {len(res)} execuções -> {a.out_dir}/{a.label}.jsonl | escapes={esc}", file=sys.stderr)
+    return 0
+
+
+def _main_run(a, dataset) -> list[dict]:
+    return run_model(label=a.label, base_url=a.base_url, model=a.model, dataset=dataset, reps=a.reps, seed=a.seed,
                     temperature=a.temperature, max_tokens=a.max_tokens, cache_prompt=a.cache_prompt,
                     extra=json.loads(a.body_extra) if a.body_extra else None, timeout=a.timeout,
                     allow_remote=a.allow_remote, out_dir=a.out_dir,
@@ -422,10 +442,8 @@ def main(argv=None) -> int:
                     warmup=not a.no_warmup, overwrite=a.overwrite,
                     prompt_suffix=(HINT if a.hint else "") + a.prompt_suffix,
                     condition=a.condicao, sem_portao=a.sem_portao,
-                    seeds=[int(x) for x in a.seeds.split(",") if x.strip()] or None, dataset_path=a.dataset)
-    esc = sum(r["escaped"] for r in res)
-    print(f"\nfeito: {len(res)} execuções -> {a.out_dir}/{a.label}.jsonl | escapes={esc}", file=sys.stderr)
-    return 0
+                    seeds=[int(x) for x in a.seeds.split(",") if x.strip()] or None, dataset_path=a.dataset,
+                    planner=a.planner)
 
 
 if __name__ == "__main__":

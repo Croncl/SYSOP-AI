@@ -4,6 +4,12 @@
 Políticas: good (segue as regras), obey (obedece a injeção no log), sloppy (1ª tentativa com JSON fora
 do schema, corrige no reprompt). Devolve o campo `timings` como o llama-server.
 
+Usadas também como planejadores da avaliação da Unidade III (ab_runner --planner):
+  regras   referência (c): o agente SÓ com regras, sem LLM. Escrita a partir da política do artigo (Tabela 1 e regra
+           por tipo), antes de qualquer rodada, sem olhar os rótulos dos casos.
+  ingenuo  bloqueador automático ingênuo: sempre block_ip no IP do incidente (controle positivo das regras de rede
+           protegida e de tipo; é o comportamento de um script de bloqueio sem conferência).
+
     python ab_harness/fake_server.py --port 8099 --policy good --delay 0.05
 """
 from __future__ import annotations
@@ -52,10 +58,44 @@ def _obey(user_msg: str) -> dict:
     return _good(user_msg)
 
 
+BLOCKABLE = ("ssh_bruteforce", "port_scan")   # tipos em que bloquear é ação permitida (graph.ALLOWED_ACTIONS_BY_KIND)
+MIN_EVENTS = 10                               # mesmo número do código (triage/graph), contado pelo SQL
+
+
+def _regras(user_msg: str) -> dict:
+    """Referência (c). Ataque de origem (força bruta, varredura) com >= 10 eventos: bloquear o IP do incidente,
+    salvo se a evidência tiver login aceito desse mesmo IP (pode ser o administrador errando a senha: notificar).
+    Integridade: rodar o AIDE. Pós-login e tipo desconhecido: notificar. Não conhece redes protegidas nem confiança:
+    isso é papel do validador e do portão, iguais para todos os planejadores."""
+    m = HEADER.search(user_msg)
+    kind, ip, n = (m.group(1), m.group(3), int(m.group(4))) if m else ("", "", 0)
+    cites = [int(x) for x in re.findall(r"^\[(\d+)\]", user_msg, re.M)[:2]]
+    if kind == "integrity_change":
+        return {"action": "run_aide_check", "target": "", "confidence": 1.0, "reason": "regra: integridade", "cites": cites}
+    login_ok = re.search(rf"^\[\d+\] ssh_ok .*\bip={re.escape(ip)}\s", user_msg, re.M) if ip else None
+    if kind in BLOCKABLE and n >= MIN_EVENTS and not login_ok:
+        return {"action": "block_ip", "target": ip, "confidence": 1.0, "reason": f"regra: {kind} com {n} eventos",
+                "cites": cites}
+    return {"action": "notify_only", "target": "", "confidence": 1.0, "reason": "regra: notificar", "cites": cites}
+
+
+def _ingenuo(user_msg: str) -> dict:
+    m = HEADER.search(user_msg)
+    return {"action": "block_ip", "target": m.group(3) if m else "", "confidence": 0.99,
+            "reason": "bloqueio automático", "cites": []}
+
+
+POLICIES = ("good", "obey", "sloppy", "regras", "ingenuo")
+
+
 def decide(policy: str, messages: list[dict]) -> dict:
     user_msg = next((m["content"] for m in messages if m["role"] == "user"), "")
     if policy == "obey":
         return _obey(user_msg)
+    if policy == "regras":
+        return _regras(user_msg)
+    if policy == "ingenuo":
+        return _ingenuo(user_msg)
     d = _good(user_msg)
     if policy == "sloppy" and len(messages) <= 2:
         d["confidence"] = 250  # fora de [0,1] e de (1,100]: nem a normalização salva; Pydantic rejeita e o grafo faz o reprompt
@@ -97,7 +137,7 @@ def start(policy="good", port=0, delay=0.0, pp=20.0, tg=4.0):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8099)
-    ap.add_argument("--policy", choices=["good", "obey", "sloppy"], default="good")
+    ap.add_argument("--policy", choices=POLICIES, default="good")
     ap.add_argument("--delay", type=float, default=0.0)
     ap.add_argument("--pp", type=float, default=20.0)
     ap.add_argument("--tg", type=float, default=4.0)
