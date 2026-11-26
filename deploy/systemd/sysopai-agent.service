@@ -1,0 +1,25 @@
+# SYSOP-AI: agente. Cada execução analisa até 3 incidentes abertos (1 chamada ao LLM cada) e executa SÓ o que um
+# humano aprovou no approvals.db. Sem NoNewPrivileges de propósito: o ban passa por 'sudo' (sudoers restrito).
+# Se o LLM não responde, roda com --max 0: executa o aprovado e NÃO consome incidentes (evita fallback sem análise).
+[Unit]
+Description=SYSOP-AI agente (analisa incidentes e executa o que foi aprovado)
+After=network.target
+
+[Service]
+Type=oneshot
+User=sysop
+Group=sysop
+WorkingDirectory=/var/lib/sysopai
+Environment=PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ExecStart=/bin/sh -c 'if curl -sf --max-time 5 http://127.0.0.1:8080/health >/dev/null; then M=3; else M=0; echo "LLM indisponivel: executa so o aprovado"; fi; exec /home/projetos/SYSOP-AI/venv/bin/python /home/projetos/SYSOP-AI/sysopai/cli.py run-once --max "$$M"'
+TimeoutStartSec=30min
+
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryMax=512M

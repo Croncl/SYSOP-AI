@@ -1,0 +1,35 @@
+# SYSOP-AI: coletor (journald -> SQLite). Roda como 'sysop', sem root e sem privilégios novos.
+# Caminhos do código: hoje /home/projetos/SYSOP-AI; ao mover o código para uma pasta de dono root (passo 14.2, item 3),
+# trocar nas duas linhas ExecStart e ProtectHome.
+[Unit]
+Description=SYSOP-AI coletor (journald para SQLite)
+After=systemd-journald.service
+
+[Service]
+Type=simple
+User=sysop
+Group=sysop
+WorkingDirectory=/var/lib/sysopai
+Environment=PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ExecStart=/home/projetos/SYSOP-AI/venv/bin/python /home/projetos/SYSOP-AI/sysopai/collector.py
+# o coletor encerra com código 0 se o journalctl terminar: reiniciar sempre
+Restart=always
+RestartSec=5
+
+# endurecimento (o coletor só lê o journal e grava em /var/lib/sysopai)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/sysopai
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

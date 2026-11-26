@@ -1,0 +1,12 @@
+# SYSOP-AI: dispara o agente 3 min após o boot e, depois, 5 min após o FIM de cada execução (sem sobreposição).
+[Unit]
+Description=SYSOP-AI agente (periódico)
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=5min
+AccuracySec=30s
+Unit=sysopai-agent.service
+
+[Install]
+WantedBy=timers.target
