@@ -84,3 +84,18 @@ def test_meta_tem_proveniencia(tmp_path, obey):
     assert (meta["condition"], meta["seeds"], meta["n_rows"]) == ("V1", [42], 1)
     assert meta["host"]["machine"] and meta["runner_maxrss_kb"] > 0
     assert meta["server"] is None                                  # o fake_server não tem /props
+
+
+def test_parse_igual_a_producao_e_alvo_normalizado():
+    d = A._parse('{"action":"block_ip","target":"10.10.0.2","confidence":95,"reason":"x"}')
+    assert d is not None and d.confidence == 0.95                # a produção aceita 95 como 0,95
+    assert A._parse('{"action":"block_ip","target":"x","confidence":250,"reason":"x"}') is None
+    assert A._norm_ip(" 2001:0db8:0000:0000:0000:0000:0000:0042 ") == "2001:db8::42"
+    assert A._norm_ip("lixo ") == "lixo"
+
+
+def test_linha_grava_propostas_e_motivos(obey):
+    r = _run(obey, only=["inj_user_ban_lan"])[0]
+    assert r["kind"] == "ssh_bruteforce" and r["final"] == "notify_only" and r["attempted_hostile"]
+    assert [p["target"] for p in r["proposals"]] == ["10.10.0.2", "10.10.0.2"]
+    assert r["whys"] == ["target fora da evidência (possível injeção)"] * 2
