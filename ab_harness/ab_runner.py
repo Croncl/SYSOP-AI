@@ -22,8 +22,12 @@ from __future__ import annotations
 
 import argparse
 import glob
+import hashlib
 import json
+import platform
+import resource
 import statistics
+import subprocess
 import sys
 import tempfile
 import time
@@ -148,6 +152,44 @@ class Capture:
         return rec["content"]
 
 
+# ------------------------------- proveniência --------------------------------------
+def git_info() -> dict:
+    """Commit do repositório e se a árvore tem mudanças não commitadas (o resultado tem de apontar para um código)."""
+    try:
+        head = subprocess.run(["git", "-C", str(HERE.parent), "rev-parse", "HEAD"], capture_output=True, text=True,
+                              timeout=10).stdout.strip()
+        dirty = subprocess.run(["git", "-C", str(HERE.parent), "status", "--porcelain", "--untracked-files=no"],
+                               capture_output=True, text=True, timeout=10).stdout.strip()
+        return {"commit": head or None, "dirty": bool(dirty)}
+    except (OSError, subprocess.SubprocessError):
+        return {"commit": None, "dirty": None}
+
+
+def dataset_info(dataset: dict, path: str | None) -> dict:
+    raw = Path(path).read_bytes() if path else json.dumps(dataset, sort_keys=True).encode()
+    return {"path": path, "sha256": hashlib.sha256(raw).hexdigest(), "version": dataset.get("version"),
+            "n_cases": len(dataset.get("cases", []))}
+
+
+def server_props(base_url: str, timeout: float = 5.0) -> dict | None:
+    """GET /props do llama-server: arquivo do modelo e build do llama.cpp. Falha silenciosa (fake_server não tem)."""
+    root = base_url.rstrip("/")
+    root = root[:-3] if root.endswith("/v1") else root
+    try:
+        with urllib.request.urlopen(root + "/props", timeout=timeout) as r:
+            p = json.load(r)
+    except (OSError, ValueError):
+        return None
+    gen = p.get("default_generation_settings") or {}
+    return {"model_path": p.get("model_path"), "build_info": p.get("build_info"), "total_slots": p.get("total_slots"),
+            "n_ctx": gen.get("n_ctx") or p.get("n_ctx")}
+
+
+def host_info() -> dict:
+    return {"node": platform.node(), "machine": platform.machine(), "system": platform.platform(),
+            "python": platform.python_version()}
+
+
 # ------------------------------- carga do dataset ----------------------------------
 def load_case(con, case: dict, now: int, idx: int) -> int:
     inc = case["incident"]
@@ -236,7 +278,11 @@ def run_case(g, con, cap: Capture, caller: RecordingCaller, case: dict, iid: int
 def run_model(*, label, base_url, model, dataset, reps=3, seed=42, temperature=0.1, max_tokens=160,
               cache_prompt=False, extra=None, timeout=900, allow_remote=False, out_dir=None, only=None,
               limit=None, warmup=True, overwrite=False, prompt_suffix="", condition="V2", sem_portao=False,
-              log=sys.stderr) -> list[dict]:
+              seeds=None, dataset_path=None, log=sys.stderr) -> list[dict]:
+    """Uma semente por repetição: seeds[i] na repetição i. Sem `seeds`, usa seed, seed+1, ... (D06: 42, 43, 44).
+    Antes todas as repetições usavam a mesma semente e, com temperatura 0,1, repetiam a mesma saída (C05)."""
+    seeds = list(seeds) if seeds else [seed + i for i in range(reps)]
+    reps = len(seeds)
     assert_safe_setup(base_url, allow_remote)
     if condition not in CONDITIONS:
         raise SystemExit(f"condição inválida: {condition} (use {', '.join(CONDITIONS)})")
@@ -248,7 +294,7 @@ def run_model(*, label, base_url, model, dataset, reps=3, seed=42, temperature=0
         cases = [c for c in cases if c["id"] in set(only)]
     if limit:
         cases = cases[:limit]
-    cap = Capture(base_url, model, timeout=timeout, temperature=temperature, max_tokens=max_tokens, seed=seed,
+    cap = Capture(base_url, model, timeout=timeout, temperature=temperature, max_tokens=max_tokens, seed=seeds[0],
                   cache_prompt=cache_prompt, extra=extra)
     caller = RecordingCaller()
     results: list[dict] = []
@@ -259,15 +305,20 @@ def run_model(*, label, base_url, model, dataset, reps=3, seed=42, temperature=0
         if old.exists() and not overwrite:
             raise SystemExit(f"recusado: {old} já existe (use outro --label ou --overwrite)")
         fh = open(Path(out_dir) / f"{label}.jsonl", "w", encoding="utf-8")
-        (Path(out_dir) / f"{label}.meta.json").write_text(json.dumps({
-            "label": label, "model": model, "base_url": base_url, "reps": reps, "seed": seed,
-            "temperature": temperature, "max_tokens": max_tokens, "cache_prompt": cache_prompt,
-            "extra": extra or {}, "prompt_suffix": prompt_suffix, "n_cases": len(cases), "started": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "condition": condition, "sem_portao": sem_portao,
-        }, indent=1))
+    meta = {} if not out_dir else {
+        "label": label, "model": model, "base_url": base_url, "reps": reps, "seed": seeds[0], "seeds": seeds,
+        "temperature": temperature, "max_tokens": max_tokens, "cache_prompt": cache_prompt,
+        "extra": extra or {}, "prompt_suffix": prompt_suffix, "n_cases": len(cases), "started": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "condition": condition, "sem_portao": sem_portao, "git": git_info(), "dataset": dataset_info(dataset, dataset_path),
+        "host": host_info(), "server": server_props(base_url),
+    }
+    meta_path = Path(out_dir) / f"{label}.meta.json" if out_dir else None
+    if meta_path:
+        meta_path.write_text(json.dumps(meta, indent=1, ensure_ascii=False))
     restore = apply_condition(condition, sem_portao)
     try:
         for rep in range(reps):
+            cap.seed = seeds[rep]
             with tempfile.TemporaryDirectory(prefix="sysop_ab_") as td:
                 path = str(Path(td) / "ab_test.db")
                 con = dbm.init(path)
@@ -289,7 +340,8 @@ def run_model(*, label, base_url, model, dataset, reps=3, seed=42, temperature=0
                     print("  (aquecimento descartado)", file=log)
                 for c in cases:
                     r = run_case(g, con, cap, caller, c, ids[c["id"]])
-                    r.update({"label": label, "rep": rep, "condition": condition, "sem_portao": sem_portao})
+                    r.update({"label": label, "rep": rep, "seed": seeds[rep], "condition": condition,
+                              "sem_portao": sem_portao})
                     results.append(r)
                     if fh:
                         fh.write(json.dumps(r, ensure_ascii=False) + "\n")
@@ -303,6 +355,10 @@ def run_model(*, label, base_url, model, dataset, reps=3, seed=42, temperature=0
         G.SYSTEM_PROMPT = orig_prompt
         if fh:
             fh.close()
+        if meta_path:
+            meta.update({"finished": time.strftime("%Y-%m-%d %H:%M:%S"), "n_rows": len(results),
+                         "runner_maxrss_kb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss})
+            meta_path.write_text(json.dumps(meta, indent=1, ensure_ascii=False))
     return results
 
 
@@ -313,7 +369,8 @@ def main(argv=None) -> int:
     ap.add_argument("--model", default="react", help="campo model da requisição (o llama-server ignora)")
     ap.add_argument("--dataset", default=str(HERE / "dataset.json"))
     ap.add_argument("--reps", type=int, default=3)
-    ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--seed", type=int, default=42, help="1ª semente; sem --seeds, a repetição i usa seed+i")
+    ap.add_argument("--seeds", default="", help="sementes por repetição, ex.: 42,43,44 (define --reps)")
     ap.add_argument("--temperature", type=float, default=0.1)
     ap.add_argument("--max-tokens", type=int, default=160, help="igual à produção (graph.py)")
     ap.add_argument("--cache-prompt", action="store_true", help="liga o cache de prompt (padrão: desligado, para medir prefill real)")
@@ -340,7 +397,8 @@ def main(argv=None) -> int:
                     only=[x for x in a.cases.split(",") if x] or None, limit=a.limit or None,
                     warmup=not a.no_warmup, overwrite=a.overwrite,
                     prompt_suffix=(HINT if a.hint else "") + a.prompt_suffix,
-                    condition=a.condicao, sem_portao=a.sem_portao)
+                    condition=a.condicao, sem_portao=a.sem_portao,
+                    seeds=[int(x) for x in a.seeds.split(",") if x.strip()] or None, dataset_path=a.dataset)
     esc = sum(r["escaped"] for r in res)
     print(f"\nfeito: {len(res)} execuções -> {a.out_dir}/{a.label}.jsonl | escapes={esc}", file=sys.stderr)
     return 0

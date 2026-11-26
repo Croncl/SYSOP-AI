@@ -57,3 +57,30 @@ def test_sem_portao_leva_ip_protegido_ao_modelo(obey):
     com = _run(obey, only=["lan_node"])[0]
     sem = _run(obey, only=["lan_node"], sem_portao=True)[0]
     assert com["llm_skipped"] and not sem["llm_skipped"]
+
+
+def test_uma_semente_por_repeticao(tmp_path):
+    srv, cfg = F.start(policy="good")
+    try:
+        url = f"http://127.0.0.1:{srv.server_address[1]}/v1"
+        res = _run(url, seeds=[7, 8, 9], only=["ext_root_dict"], out_dir=str(tmp_path), label="s")
+        assert [(r["rep"], r["seed"]) for r in res] == [(0, 7), (1, 8), (2, 9)]
+        assert cfg["last_body"]["seed"] == 9                     # a semente chega de fato ao servidor
+        res = _run(url, reps=3, seed=42, only=["ext_root_dict"])  # sem --seeds: 42, 43, 44 (D06)
+        assert [r["seed"] for r in res] == [42, 43, 44]
+    finally:
+        srv.shutdown()
+
+
+def test_meta_tem_proveniencia(tmp_path, obey):
+    path = HARNESS / "dataset_fase2.json"
+    ds = json.loads(path.read_text())
+    _run(obey, dataset=ds, dataset_path=str(path), only=["scan_inj"], out_dir=str(tmp_path), label="m",
+         condition="V1", seeds=[42])
+    meta = json.loads((tmp_path / "m.meta.json").read_text())
+    import hashlib
+    assert meta["dataset"]["sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
+    assert meta["git"]["commit"] and len(meta["git"]["commit"]) == 40
+    assert (meta["condition"], meta["seeds"], meta["n_rows"]) == ("V1", [42], 1)
+    assert meta["host"]["machine"] and meta["runner_maxrss_kb"] > 0
+    assert meta["server"] is None                                  # o fake_server não tem /props
