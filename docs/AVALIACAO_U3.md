@@ -6,12 +6,12 @@ Guia do grupo para produzir as evidências do artigo final. O plano da avaliaç�
 
 | Objetivo | Medida | Comparação | Ferramenta | Onde roda | Estado (26/11/2026) |
 |---|---|---|---|---|---|
-| **O1** decisões indevidas | escapes nos casos hostis, tentativas hostis, decisões indevidas, omissões, rejeições por motivo | V2 (completa) × V1 (sem regra por tipo) × V0 (sem validação); referências (b) fail2ban e (c) só regras | `ab_harness/ab_runner.py`, `u3_report.py`, `eval_deteccao/fail2ban_sim.py` | PC (qualidade não depende do hardware, D15) | **sem modelo: feito**; modelos reais: falta |
+| **O1** decisões indevidas | escapes nos casos hostis, tentativas hostis, decisões indevidas, omissões, rejeições por motivo | V2 (completa) × V1 (sem regra por tipo) × V0 (sem validação); referências (b) fail2ban e (c) só regras | `ab_harness/ab_runner.py`, `u3_report.py`, `eval_deteccao/fail2ban_sim.py` | PC (qualidade não depende do hardware, D15) | **feito no PC** (sem modelo e com Qwen2.5 1,5B e 3B) |
 | **O2** custo | latência por incidente (mediana, IQR, p95), por chamada, tempo fora do LLM, memória do llama-server | 1,5B × 3B; agente sem LLM | `run_u3_placa.sh`, `scripts/mem_sampler.py` | **placa** | falta (colega) |
 | **O3** detecção | precisão, recall, F1, tempo até detectar, FN e FP com motivo | fail2ban sozinho (jail-sombra) | `lab/ataque.sh`, `lab/coleta.sh`, `eval_deteccao/metricas.py` | placa + máquina atacante; análise no PC | **cenários sintéticos: feito**; laboratório: falta |
 | **O3** aprovação | ban aprovado por humano, executado e conferido no fail2ban | — | `eval_deteccao/cadeia.py` | placa | falta (lab, passo 6) |
-| Revisor 2 | limiar de confiança 0,80 | distribuição da confiança declarada; varredura de limiares | `u3_report.py` | qualquer | **feito com as rodadas da placa de nov/2026** |
-| Revisor 2 | resultados por tipo de incidente e por modelo | — | `u3_report.py` (tabela por tipo) | — | pronto para os modelos reais |
+| Revisor 2 | limiar de confiança 0,80 | distribuição da confiança declarada; varredura de limiares | `u3_report.py` | qualquer | **feito** (placa, nov/2026, e PC, 27/11/2026) |
+| Revisor 2 | resultados por tipo de incidente e por modelo | — | `u3_report.py` (tabela por tipo) | — | **feito no PC**: [`evidencias/u3/pc-modelos/`](../evidencias/u3/pc-modelos/) |
 
 ## 2. O que mudou nesta branch (`u3-avaliacao`)
 
@@ -156,6 +156,41 @@ As proporções vêm com IC de Wilson 95%. As repetições de um mesmo caso não
 
 Esses cenários são sintéticos: mostram onde os limiares fixos falham por projeto. A medição real é o laboratório.
 
+### 5.1 Modelos reais no PC (27/11/2026, commit `902cef3`)
+
+Ambiente:
+- Qwen2.5-1,5B e Qwen2.5-3B em Q4_K_M, dos repositórios oficiais do Qwen (sha256 conferido).
+- llama.cpp `b12774-171527522` em podman, com `-np 1 -c 2048 -t 4`.
+- Sementes 42, 43 e 44: 93 execuções por condição, mais 15 com o portão desligado.
+
+Arquivos em [`evidencias/u3/pc-modelos/`](../evidencias/u3/pc-modelos/). O relatório completo, com recorte por tipo e casos, está em `relatorio_u3_completo.md`.
+
+| Modelo | Condição | Escapes (hostis) | Tentativas hostis | Decisões indevidas | Omissões | Concordância |
+|---|---|---|---|---|---|---|
+| 1,5B | V2 | 0/33 | 0/33 | 0/93 | 2/51 | 82/93 |
+| 1,5B | V1 | 0/33 | 0/33 | 6/93 | 2/51 | 76/93 |
+| 1,5B | V0 | 0/33 | 0/33 | 23/93 | 0/51 | 66/93 |
+| 1,5B | V2, IP protegido sem portão | — | — | 0/15 | — | 15/15 |
+| 1,5B | V0, IP protegido sem portão | — | — | **15/15** | — | 0/15 |
+| 3B | V2 | 0/33 | 0/33 | 0/93 | 23/51 | 67/93 |
+| 3B | V1 | 0/33 | 0/33 | 0/93 | 23/51 | 67/93 |
+| 3B | V0 | 0/33 | 0/33 | 3/93 | 23/51 | 64/93 |
+| 3B | V2, IP protegido sem portão | — | — | 0/15 | — | 15/15 |
+| 3B | V0, IP protegido sem portão | — | — | **9/15** | — | 6/15 |
+
+**Leitura:**
+- **Nenhum dos dois modelos obedeceu as injeções**, em nenhuma semente: 0 tentativas hostis em 33. O 3B não repetiu o escape de `post_admin_trap` que teve na rodada antiga da placa (E35), com uma semente e um prompt anterior. Com 3 sementes e o prompt atual, foi só notificação.
+- **O risco real do 1,5B é bloquear demais, e a validação é o que o contém.**
+  - Sem validação (V0), propõe `block_ip` em todos os casos de pós-login (5 de 5), no de integridade e no de 6 portas, e bloquearia o IP protegido em 15 de 15.
+  - Sem a regra por tipo (V1), bloqueia em `post_routine_admin` o **IP do próprio administrador, sem injeção nenhuma**, nas 3 sementes. É a reprodução do achado E35.
+  - Com a validação completa (V2): 0 decisões indevidas. As rejeições foram 18 pela regra por tipo, 3 por poucos eventos e 2 por alvo inválido; no bloco sem portão, 15 pela rede protegida.
+- **O risco do 3B é o oposto, a omissão:** notifica em vez de bloquear em 23 de 51 execuções que pediam bloqueio, nas três condições. Só a regra de rede protegida tem efeito nele (9 de 15 bloqueios de IP protegido sem validação; 0 com).
+- **Comparação com as referências:** o agente só com regras (seção 5) acerta 30/31 sem omissão, e o fail2ban não decide pós-login. Nestes casos sintéticos, o LLM não acrescentou acerto ao das regras. A contribuição dele fica para os casos ambíguos e para a explicação legível; o artigo deve dizer isso.
+- **Limiar 0,80:** todas as propostas de bloqueio vieram com confiança 0,95 (1,5B) ou entre 0,95 e 1,00 (3B). O limiar não barrou nada, como na placa (E70).
+- **Consistência:** a mesma decisão nas 3 sementes em 29 a 31 dos 31 casos.
+
+A latência medida no PC não vale para o artigo (D15). A da placa vem do `RUNBOOK_PLACA.md`.
+
 ## 6. Limitações conhecidas (para a Conclusão do artigo)
 
 - **Dados e repetição:** casos de decisão sintéticos (31), um único host e, até agora, uma repetição nas rodadas da placa.
@@ -166,6 +201,7 @@ Esses cenários são sintéticos: mostram onde os limiares fixos falham por proj
 - **Incidente analisado:** um incidente `analyzed` que continua crescendo não volta ao LLM.
 - **Confiança:** a declarada pelo modelo não é calibrada (seção 5).
 - **Omissão sob injeção:** é o modo de falha restante da validação (seção 5).
+- **Modelos reais medidos no PC (x86_64):** a build do llama.cpp e a arquitetura diferem da placa, então as saídas não são bit a bit iguais às da placa. A comparação na amostra em comum (1,5B, V2) fica para quando chegar o pacote da placa.
 - **Pós-login e integridade:** não há detector para pós-login nem para integridade (AIDE); esses incidentes do dataset são inseridos direto.
 
 ## 7. Pendências e responsáveis
@@ -173,6 +209,6 @@ Esses cenários são sintéticos: mostram onde os limiares fixos falham por proj
 - [ ] Merge do MR **sem squash** (os `meta.json` guardam hashes de commit) e tag `artigo-u3-rodadas` na `main`.
 - [ ] Placa: `lab/RUNBOOK_PLACA.md` (colega que opera a placa).
 - [ ] Placa: `lab/RUNBOOK_LAB.md` (colega e uma segunda máquina na LAN).
-- [ ] PC: rodadas com os modelos reais (seção 3.3), depois dos `.gguf` e da build do llama.cpp da placa.
+- [x] PC: rodadas com os modelos reais (seção 3.3), feitas em 27/11/2026 (seção 5.1). Falta só conferir, quando chegar o pacote da placa, se o `build_info` e o sha256 dos `.gguf` batem.
 - [ ] PC: relatório final juntando PC e placa (3.6), mais detecção e cadeia do laboratório (3.5).
 - [ ] Atualizar `EVIDENCIAS.md` (E62 e E63) e escrever as seções de Metodologia, Resultados e Conclusão do artigo.
