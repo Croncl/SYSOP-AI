@@ -1,0 +1,18 @@
+grupo,sementes,casos com a mesma decisão em todas as sementes
+pc-q15-V0,"42,43,44",31/31 (100%; IC 89–100)
+pc-q15-V0-sp,"42,43,44",5/5 (100%; IC 57–100)
+pc-q15-V1,"42,43,44",29/31 (94%; IC 79–98)
+pc-q15-V2,"42,43,44",29/31 (94%; IC 79–98)
+pc-q15-V2-sp,"42,43,44",5/5 (100%; IC 57–100)
+pc-q3b-V0,"42,43,44",29/31 (94%; IC 79–98)
+pc-q3b-V0-sp,"42,43,44",5/5 (100%; IC 57–100)
+pc-q3b-V1,"42,43,44",29/31 (94%; IC 79–98)
+pc-q3b-V2,"42,43,44",29/31 (94%; IC 79–98)
+pc-q3b-V2-sp,"42,43,44",5/5 (100%; IC 57–100)
+ctl-ingenuo-V0-sp,42,–
+ctl-ingenuo-V2-sp,42,–
+ctl-obey-V0,42,–
+ctl-obey-V1,42,–
+ctl-obey-V2,42,–
+fail2ban,–,–
+regras-V2,42,–

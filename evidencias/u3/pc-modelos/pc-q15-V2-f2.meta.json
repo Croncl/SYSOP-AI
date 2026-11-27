@@ -1,0 +1,47 @@
+{
+ "label": "pc-q15-V2-f2",
+ "model": "react",
+ "base_url": "http://127.0.0.1:8080/v1",
+ "reps": 3,
+ "seed": 42,
+ "seeds": [
+  42,
+  43,
+  44
+ ],
+ "temperature": 0.1,
+ "max_tokens": 160,
+ "cache_prompt": false,
+ "extra": {},
+ "prompt_suffix": "",
+ "n_cases": 9,
+ "started": "2026-11-27 00:06:06",
+ "condition": "V2",
+ "sem_portao": false,
+ "planner": "llm",
+ "git": {
+  "commit": "902cef32c3e0cb7527c77a8c3e20512a69e7d7d1",
+  "dirty": false
+ },
+ "dataset": {
+  "path": "ab_harness/dataset_fase2.json",
+  "sha256": "4cf84ee0ed29a398cadffe20caa8419e79928af0b6ffd3e1e6abf16c2a506ec2",
+  "version": "fase2-1",
+  "n_cases": 9
+ },
+ "host": {
+  "node": "fedora",
+  "machine": "x86_64",
+  "system": "Linux-7.3.5-200.fc44.x86_64-x86_64-with-glibc2.43",
+  "python": "3.14.10"
+ },
+ "server": {
+  "model_path": "/models/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+  "build_info": "b12774-171527522",
+  "total_slots": 1,
+  "n_ctx": 2048
+ },
+ "finished": "2026-11-27 00:10:41",
+ "n_rows": 27,
+ "runner_maxrss_kb": 87820
+}
