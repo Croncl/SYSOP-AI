@@ -1,0 +1,60 @@
+episodio,tipo,ip,inicio,fim,esperado,ferramenta,notas
+S1-rapida,ssh_bruteforce,203.0.113.21,1800001800,1800001920,detectar,sintético,60 falhas em 2 min
+S2-no-limiar,ssh_bruteforce,203.0.113.22,1800003600,1800003630,detectar,sintético,exatamente 10 falhas
+S3-abaixo-do-limiar,ssh_bruteforce,203.0.113.23,1800005400,1800005427,nao_detectar,sintético,9 falhas em 30 s
+S4-lenta-90s,ssh_bruteforce,203.0.113.24,1800007200,1800008910,nao_detectar,sintético,"1 falha a cada 90 s, 30 min"
+S5-lenta-150s,ssh_bruteforce,203.0.113.25,1800009000,1800011850,nao_detectar,sintético,"1 falha a cada 150 s, 50 min"
+S6-distribuida-1,ssh_bruteforce,198.51.100.101,1800010800,1800010830,nao_detectar,sintético,4 IPs x 4 falhas no mesmo minuto
+S6-distribuida-2,ssh_bruteforce,198.51.100.102,1800010800,1800010830,nao_detectar,sintético,4 IPs x 4 falhas no mesmo minuto
+S6-distribuida-3,ssh_bruteforce,198.51.100.103,1800010800,1800010830,nao_detectar,sintético,4 IPs x 4 falhas no mesmo minuto
+S6-distribuida-4,ssh_bruteforce,198.51.100.104,1800010800,1800010830,nao_detectar,sintético,4 IPs x 4 falhas no mesmo minuto
+S7-ipv6,ssh_bruteforce,2001:db8::21,1800012600,1800012660,nao_detectar,sintético,IPv6: a triagem do SSH só lê IPv4
+S8-invalid-user,ssh_bruteforce,203.0.113.28,1800014400,1800014460,detectar,sintético,só 'Invalid user' (senha desligada no sshd)
+B1-admin-erra-2x,benigno,198.51.100.50,1800016200,1800016209,nao_detectar,sintético,2 erros e login
+B2-admin-erra-6x,benigno,198.51.100.51,1800018000,1800018060,nao_detectar,sintético,6 erros (gerenciador de senha antigo) e login
+B3-logins-chave-1,benigno,192.0.2.10,1800019800,1800020100,nao_detectar,sintético,"login por chave, sem falhas"
+B3-logins-chave-2,benigno,192.0.2.11,1800019800,1800020100,nao_detectar,sintético,"login por chave, sem falhas"
+B3-logins-chave-3,benigno,192.0.2.12,1800019800,1800020100,nao_detectar,sintético,"login por chave, sem falhas"
+B3-logins-chave-4,benigno,192.0.2.13,1800019800,1800020100,nao_detectar,sintético,"login por chave, sem falhas"
+B3-logins-chave-5,benigno,192.0.2.14,1800019800,1800020100,nao_detectar,sintético,"login por chave, sem falhas"
+B3-logins-chave-6,benigno,192.0.2.15,1800019800,1800020100,nao_detectar,sintético,"login por chave, sem falhas"
+B3-logins-chave-7,benigno,192.0.2.16,1800019800,1800020100,nao_detectar,sintético,"login por chave, sem falhas"
+B3-logins-chave-8,benigno,192.0.2.17,1800019800,1800020100,nao_detectar,sintético,"login por chave, sem falhas"
+B3-logins-chave-9,benigno,192.0.2.18,1800019800,1800020100,nao_detectar,sintético,"login por chave, sem falhas"
+B3-logins-chave-10,benigno,192.0.2.19,1800019800,1800020100,nao_detectar,sintético,"login por chave, sem falhas"
+P1-rapida-100,port_scan,203.0.113.31,1800021600,1800021630,detectar,sintético,100 portas em 30 s (o UFW registra ~11)
+P2-rapida-1000,port_scan,203.0.113.32,1800023400,1800023700,detectar,sintético,1000 portas em 5 min
+P3-9-portas,port_scan,203.0.113.33,1800025200,1800025227,nao_detectar,sintético,9 portas
+P4-lenta,port_scan,203.0.113.34,1800027000,1800029280,nao_detectar,sintético,"1 porta a cada 2 min, 40 min"
+P5-mesma-porta,benigno,203.0.113.35,1800028800,1800029400,nao_detectar,sintético,300 tentativas na porta 22
+P6-ruido-1,benigno,192.0.2.100,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-2,benigno,192.0.2.101,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-3,benigno,192.0.2.102,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-4,benigno,192.0.2.103,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-5,benigno,192.0.2.104,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-6,benigno,192.0.2.105,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-7,benigno,192.0.2.106,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-8,benigno,192.0.2.107,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-9,benigno,192.0.2.108,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-10,benigno,192.0.2.109,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-11,benigno,192.0.2.110,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-12,benigno,192.0.2.111,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-13,benigno,192.0.2.112,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-14,benigno,192.0.2.113,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-15,benigno,192.0.2.114,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-16,benigno,192.0.2.115,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-17,benigno,192.0.2.116,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-18,benigno,192.0.2.117,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-19,benigno,192.0.2.118,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-20,benigno,192.0.2.119,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-21,benigno,192.0.2.120,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-22,benigno,192.0.2.121,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-23,benigno,192.0.2.122,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-24,benigno,192.0.2.123,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-25,benigno,192.0.2.124,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-26,benigno,192.0.2.125,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-27,benigno,192.0.2.126,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-28,benigno,192.0.2.127,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-29,benigno,192.0.2.128,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P6-ruido-30,benigno,192.0.2.129,1800030600,1800031200,nao_detectar,sintético,1 bloqueio por IP (mDNS)
+P7-ipv6-15,port_scan,2001:db8::31,1800032400,1800032445,detectar,sintético,"15 portas, IPv6 (o UFW aceita)"

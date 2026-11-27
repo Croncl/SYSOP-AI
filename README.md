@@ -25,11 +25,11 @@ journald · UFW · fail2ban · AIDE · (auditd, fase 2)
 - Ferramentas novas propostas pelo agente só valem após validação AST, sandbox sem rede e aprovação humana.
 
 ## Estado
-Passos 1 a 11 concluídos; passo 13 (testes) em andamento; 12 (auditoria) e 15 (hardening) pendentes; 14 (deploy) em andamento. **170 testes** passando. Detalhes, medições e decisões em [`docs/IMPLANTACAO.md`](docs/IMPLANTACAO.md).
+Passos 1 a 11 concluídos; passo 13 (testes) em andamento; 12 (auditoria) e 15 (hardening) pendentes; 14 (deploy) em andamento. **209 testes** passando (26/11/2026, após as correções da seção 13.14). Detalhes, medições e decisões em [`docs/IMPLANTACAO.md`](docs/IMPLANTACAO.md).
 
 **LLM do nó Plan: Qwen2.5-1.5B** (Q4_K_M) via `llama.cpp` em container podman, `127.0.0.1:8080`, ≈ 50 s por incidente [Medido]. Escolhido em um A/B contra o Qwen2.5-3B (≈ 120 s por incidente); em 06/11/2026 o Spark-X2.6-1.7B e o Qwen3-1.7B foram testados e reprovados (ver passo 13, seção 13.13). **Nada é em tempo real.**
 
-Detectores prontos: força bruta no SSH e **port scan** (validado na placa em 04/11/2026; ver o passo 13.10). Faltam: detecção de atividade pós-login, auditd, dashboard, alertas, unidades `systemd` do coletor e do agente e hardening de produção. O container do LLM já sobe sozinho no boot (passo 14.1), e a cadeia de aprovação do ban (o administrador aprova, o serviço executa e verifica) foi validada de ponta a ponta na placa em 07/11/2026 (passo 14.3).
+Detectores prontos: força bruta no SSH (um incidente por ataque, consolidado) e **port scan** (validado na placa em 04/11/2026; ver o passo 13.10). Faltam: detecção de atividade pós-login, auditd, dashboard, alertas, unidades `systemd` do coletor e do agente e hardening de produção. O container do LLM já sobe sozinho no boot (passo 14.1), e a cadeia de aprovação do ban (o administrador aprova, o serviço executa e verifica) foi validada de ponta a ponta na placa em 07/11/2026 (passo 14.3).
 
 ## Estrutura
 | Pasta | Conteúdo |
@@ -40,6 +40,9 @@ Detectores prontos: força bruta no SSH e **port scan** (validado na placa em 04
 | `kb/` | base curada de procedimentos para o RAG |
 | `docs/` | documento de implantação incremental |
 | `ab_harness/` | A/B de modelos do nó Plan, dados sintéticos e relatórios (ver o README dele) |
+| `eval_deteccao/` | avaliação da detecção (replay do journal, métricas por episódio, fail2ban simulado, cenários, cadeia do ban) |
+| `lab/` | roteiros e scripts para as rodadas e o laboratório de ataques na placa |
+| `evidencias/` | evidências e decisões do artigo; `u3/` tem os resultados da Unidade III |
 
 ## Rodando
 ```bash
@@ -65,4 +68,5 @@ Feito e validado no **Orange Pi 4 Pro** (Debian, aarch64). **Outros Linux são v
 
 ## Documentação
 - [`docs/IMPLANTACAO.md`](docs/IMPLANTACAO.md): histórico, decisões, medições e pendências, passo a passo.
+- [`docs/AVALIACAO_U3.md`](docs/AVALIACAO_U3.md): avaliação da Unidade III (como rodar no PC e na placa, o que já rodou, resultados e pendências); roteiros da placa em [`lab/`](lab/).
 - Arquitetura de referência: doc 14 (`14-sysop-ai-arquitetura-agentica.md`, mantido no Projeto Claude, fora deste repositório).

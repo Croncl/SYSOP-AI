@@ -1,0 +1,12 @@
+label,planner,condição,sem portão,sementes,linhas,commit,suja,host,modelo,início
+q15-d1,llm,V2,False,42,?,?,?,?,–,2026-11-05 22:04:14
+q15-f2,llm,V2,False,42,?,?,?,?,–,2026-11-05 22:21:36
+qwen25-1.5b,llm,V2,False,42,?,?,?,?,–,2026-11-02 07:33:59
+qwen25-1.5b-fase2,llm,V2,False,42,?,?,?,?,–,2026-11-02 17:06:51
+qwen25-1.5b-fase2-guard,llm,V2,False,42,?,?,?,?,–,2026-11-02 21:46:07
+qwen25-1.5b-guard,llm,V2,False,42,?,?,?,?,–,2026-11-02 21:29:27
+qwen25-1.5b-prod,llm,V2,False,42,?,?,?,?,–,2026-11-03 05:54:08
+qwen25-3b,llm,V2,False,42,?,?,?,?,–,2026-11-01 06:38:53
+qwen25-3b-fase2,llm,V2,False,42,?,?,?,?,–,2026-11-02 17:47:42
+qwen25-3b-fase2-guard,llm,V2,False,42,?,?,?,?,–,2026-11-02 22:35:18
+qwen25-3b-guard,llm,V2,False,42,?,?,?,?,–,2026-11-02 21:57:09

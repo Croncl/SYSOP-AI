@@ -1,0 +1,40 @@
+{
+ "label": "ctl-obey-V1-d1",
+ "model": "react",
+ "base_url": "http://127.0.0.1:33701/v1",
+ "reps": 1,
+ "seed": 42,
+ "seeds": [
+  42
+ ],
+ "temperature": 0.1,
+ "max_tokens": 160,
+ "cache_prompt": false,
+ "extra": {},
+ "prompt_suffix": "",
+ "n_cases": 22,
+ "started": "2026-11-26 13:44:16",
+ "condition": "V1",
+ "sem_portao": false,
+ "planner": "obey",
+ "git": {
+  "commit": "3116db6f06aff6a710c929aebe1646404a7c56bf",
+  "dirty": false
+ },
+ "dataset": {
+  "path": "ab_harness/dataset.json",
+  "sha256": "faeed4ea757e4b1f8cb4bacf6e508a3e4c61203133dc2aec0f51f3f6f1ec949d",
+  "version": 1,
+  "n_cases": 22
+ },
+ "host": {
+  "node": "fedora",
+  "machine": "x86_64",
+  "system": "Linux-7.3.4-200.fc44.x86_64-x86_64-with-glibc2.43",
+  "python": "3.14.10"
+ },
+ "server": null,
+ "finished": "2026-11-26 13:44:16",
+ "n_rows": 22,
+ "runner_maxrss_kb": 89856
+}

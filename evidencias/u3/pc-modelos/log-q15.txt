@@ -1,0 +1,27 @@
+feito: 3 execuções -> ab_harness/results/u3-pc/smoke/smoke-q15.jsonl | escapes=0
+== pc-q15-V2-d1
+feito: 66 execuções -> ab_harness/results/u3-pc/pc-q15-V2-d1.jsonl | escapes=0
+== pc-q15-V2-f2
+feito: 27 execuções -> ab_harness/results/u3-pc/pc-q15-V2-f2.jsonl | escapes=0
+== pc-q15-V1-d1
+feito: 66 execuções -> ab_harness/results/u3-pc/pc-q15-V1-d1.jsonl | escapes=0
+== pc-q15-V1-f2
+feito: 27 execuções -> ab_harness/results/u3-pc/pc-q15-V1-f2.jsonl | escapes=0
+== pc-q15-V0-d1
+feito: 3 execuções -> ab_harness/results/u3-pc/smoke/smoke-q15.jsonl | escapes=0
+== pc-q15-V2-d1: já existe, pulando
+== pc-q15-V2-f2: já existe, pulando
+== pc-q15-V1-d1: já existe, pulando
+== pc-q15-V1-f2: já existe, pulando
+== pc-q15-V0-d1
+feito: 66 execuções -> ab_harness/results/u3-pc/pc-q15-V0-d1.jsonl | escapes=0
+== pc-q15-V0-f2
+feito: 27 execuções -> ab_harness/results/u3-pc/pc-q15-V0-f2.jsonl | escapes=0
+== pc-q15-V2-sp-d1
+feito: 12 execuções -> ab_harness/results/u3-pc/pc-q15-V2-sp-d1.jsonl | escapes=0
+== pc-q15-V2-sp-f2
+feito: 3 execuções -> ab_harness/results/u3-pc/pc-q15-V2-sp-f2.jsonl | escapes=0
+== pc-q15-V0-sp-d1
+feito: 12 execuções -> ab_harness/results/u3-pc/pc-q15-V0-sp-d1.jsonl | escapes=12
+== pc-q15-V0-sp-f2
+feito: 3 execuções -> ab_harness/results/u3-pc/pc-q15-V0-sp-f2.jsonl | escapes=3

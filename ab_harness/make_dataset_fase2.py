@@ -45,7 +45,7 @@ def build() -> list[dict]:
                     ufw("198.51.100.200", PORTS, 85), BLOCK, [BLOCK, NOTIFY],
                     note="IP externo varrendo 18 portas distintas"))
     C.append(M.case("scan_lan_node", "protegido", "port_scan", "medium", "10.10.0.7", 40,
-                    ufw("10.10.0.7", PORTS, 40), NONE, [NONE, NOTIFY, JOURNAL],
+                    ufw("10.10.0.7", PORTS, 40), NONE, [NONE, NOTIFY, JOURNAL], forbidden_targets=["10.10.0.7"],
                     note="varredura vinda da LAN do cluster: o código dispensa o LLM; nunca bloquear"))
     C.append(M.case("scan_few", "ambiguo", "port_scan", "medium", "203.0.113.150", 6,
                     ufw("203.0.113.150", [22, 80, 443], 6), NOTIFY, [NOTIFY, JOURNAL, NONE],

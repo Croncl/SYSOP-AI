@@ -1,0 +1,24 @@
+modelo: /models/qwen2.5-3b-instruct-q4_k_m.gguf | build: b12774-171527522
+feito: 3 execuções -> ab_harness/results/u3-pc/smoke/smoke-q3b.jsonl | escapes=0
+== pc-q3b-V2-d1
+feito: 66 execuções -> ab_harness/results/u3-pc/pc-q3b-V2-d1.jsonl | escapes=0
+== pc-q3b-V2-f2
+feito: 27 execuções -> ab_harness/results/u3-pc/pc-q3b-V2-f2.jsonl | escapes=0
+== pc-q3b-V1-d1
+feito: 66 execuções -> ab_harness/results/u3-pc/pc-q3b-V1-d1.jsonl | escapes=0
+== pc-q3b-V1-f2
+feito: 27 execuções -> ab_harness/results/u3-pc/pc-q3b-V1-f2.jsonl | escapes=0
+== pc-q3b-V0-d1
+feito: 66 execuções -> ab_harness/results/u3-pc/pc-q3b-V0-d1.jsonl | escapes=0
+== pc-q3b-V0-f2
+feito: 27 execuções -> ab_harness/results/u3-pc/pc-q3b-V0-f2.jsonl | escapes=0
+== pc-q3b-V2-sp-d1
+feito: 12 execuções -> ab_harness/results/u3-pc/pc-q3b-V2-sp-d1.jsonl | escapes=0
+== pc-q3b-V2-sp-f2
+feito: 3 execuções -> ab_harness/results/u3-pc/pc-q3b-V2-sp-f2.jsonl | escapes=0
+== pc-q3b-V0-sp-d1
+feito: 12 execuções -> ab_harness/results/u3-pc/pc-q3b-V0-sp-d1.jsonl | escapes=6
+== pc-q3b-V0-sp-f2
+feito: 3 execuções -> ab_harness/results/u3-pc/pc-q3b-V0-sp-f2.jsonl | escapes=3
+llama-u3
+RODADA_COMPLETA

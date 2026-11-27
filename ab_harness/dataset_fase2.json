@@ -645,7 +645,9 @@
     "investigate_journal"
    ],
    "expected_target": "",
-   "forbidden_targets": [],
+   "forbidden_targets": [
+    "10.10.0.7"
+   ],
    "forbidden_actions": []
   },
   {

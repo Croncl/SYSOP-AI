@@ -61,17 +61,47 @@ def ingest(con: sqlite3.Connection, source: str, host: str, ts: int, raw: str, b
     return cur.lastrowid
 
 
+def _ssh_severity(n: int) -> str:
+    return "critical" if n >= 200 else "high" if n >= 50 else "medium"
+
+
+ACTIVE = ("open", "analyzed", "pending_approval")  # incidente "em andamento": recebe eventos novos do mesmo IP
+
+
 def open_incidents(con: sqlite3.Connection, now: int | None = None, window_s: int = 600,
                    threshold: int = 10, port_threshold: int = 10) -> list[int]:
-    """Um incidente por (kind, IP) por janela. Severidade por contagem — decisão do CÓDIGO."""
+    """Um incidente por (kind, IP) por janela. Severidade por contagem — decisão do CÓDIGO.
+    Força bruta SSH é UM incidente enquanto durar: se o IP já tem um ssh_bruteforce ativo cujo último evento está na
+    janela, as falhas novas são ANEXADAS a ele (contagem e severidade recalculadas), em vez de abrir outro a cada
+    `threshold` falhas (cada incidente novo custaria uma chamada de LLM). Mesma regra do port scan. Retorna só os ids
+    dos incidentes NOVOS."""
     now = now or int(time.time())
     ids = []
     rows = con.execute(
         "SELECT src_ip, count(*) n, min(ts) f, max(ts) l FROM raw_events "
         "WHERE ts >= ? AND label IN ('bruteforce','critical') AND src_ip IS NOT NULL AND incident_id IS NULL "
-        "GROUP BY src_ip HAVING n >= ?", (now - window_s, threshold)).fetchall()
+        "GROUP BY src_ip", (now - window_s,)).fetchall()
     for r in rows:
-        sev = "critical" if r["n"] >= 200 else "high" if r["n"] >= 50 else "medium"
+        existing = con.execute(
+            "SELECT id FROM incidents WHERE kind = 'ssh_bruteforce' AND src_ip = ? "
+            f"AND status IN ({','.join('?' * len(ACTIVE))}) AND last_ts >= ? ORDER BY id DESC LIMIT 1",
+            (r["src_ip"], *ACTIVE, now - window_s)).fetchone()
+        if existing is not None:  # mesmo ataque em andamento: anexa e recalcula
+            iid = existing["id"]
+            con.execute("UPDATE raw_events SET incident_id=? WHERE src_ip=? AND ts>=? AND incident_id IS NULL "
+                        "AND label IN ('bruteforce','critical')", (iid, r["src_ip"], now - window_s))
+            t = con.execute("SELECT count(*) n, min(ts) f, max(ts) l FROM raw_events WHERE incident_id=?",
+                            (iid,)).fetchone()
+            sev = _ssh_severity(t["n"])
+            con.execute("UPDATE incidents SET n_events=?, first_ts=?, last_ts=?, severity=?, summary=? WHERE id=?",
+                        (t["n"], t["f"], t["l"], sev,
+                         f"{t['n']} falhas de autenticação de {r['src_ip']} (ataque em andamento)", iid))
+            db.audit(con, "collector", "incident_updated",
+                     {"id": iid, "kind": "ssh_bruteforce", "severity": sev, "ip": r["src_ip"], "n": t["n"]})
+            continue
+        if r["n"] < threshold:
+            continue
+        sev = _ssh_severity(r["n"])
         cur = con.execute(
             "INSERT OR IGNORE INTO incidents(opened_at,kind,severity,src_ip,n_events,first_ts,last_ts,summary)"
             " VALUES (?,?,?,?,?,?,?,?)",

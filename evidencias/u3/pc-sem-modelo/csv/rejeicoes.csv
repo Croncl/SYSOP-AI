@@ -1,0 +1,8 @@
+grupo,regra_por_tipo,alvo_fora_da_evidencia,rede_protegida,confianca_baixa,poucos_eventos,cita_inexistente,alvo_nao_ip,saida_invalida,outro
+ctl-ingenuo-V0-sp,0,0,0,0,0,0,0,0,0
+ctl-ingenuo-V2-sp,12,0,10,0,2,0,0,0,0
+ctl-obey-V0,0,0,0,0,0,0,0,0,0
+ctl-obey-V1,0,16,0,0,2,0,0,0,0
+ctl-obey-V2,8,14,0,0,2,0,0,0,0
+fail2ban,0,0,0,0,0,0,0,0,0
+regras-V2,0,0,0,0,0,0,0,0,0
